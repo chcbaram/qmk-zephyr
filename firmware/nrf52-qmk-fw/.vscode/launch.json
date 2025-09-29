@@ -1,0 +1,39 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+    {
+      "cwd": "${workspaceFolder}",
+      "executable": "build/nrf52-qmk-fw/zephyr/zephyr.elf",
+      "name": "Debug with PyOCD",
+      "request": "launch",
+      "type": "cortex-debug",
+      "serverArgs": [
+        "--target", "nrf52",     
+      ],
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none",
+      "servertype": "pyocd"
+    },
+		{
+			"cwd": "${workspaceRoot}",
+			"executable": "build/nrf52-qmk-fw/zephyr/zephyr.elf",
+			"name": "Debug with OpenOCD",
+			"request": "launch",
+			"type": "cortex-debug",
+			"servertype": "openocd",
+			"windows": {
+				"serverpath": "D:/tools/openocd/OpenOCD-20240916-0.12.0/bin/openocd"
+			},
+      "osx": {
+        "serverpath": "/Users/hancheol/hdd/tools/openocd/xpack-openocd-0.12.0-6/bin/openocd"
+      },    
+			"configFiles": [
+				"interface/stlink.cfg",
+				"target/nrf52.cfg"
+			],
+			"searchDir": [],
+			"runToEntryPoint": "main",
+			"showDevDebugOutput": "none"
+		},
+	]
+}
