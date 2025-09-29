@@ -8,7 +8,7 @@
       "request": "launch",
       "type": "cortex-debug",
       "serverArgs": [
-        "--target", "nrf52",     
+        "--target", "nrf52840",     
       ],
       "runToEntryPoint": "main",
       "showDevDebugOutput": "none",
