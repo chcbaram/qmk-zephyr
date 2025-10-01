@@ -44,8 +44,6 @@ void cliThread(void const *arg)
   bool init_ret = true;
 
 
-  systemIsReady();
-
   logPrintf("[%s] Thread Started : CLI\n", init_ret ? "OK":"E_" );
   while(1)
   {

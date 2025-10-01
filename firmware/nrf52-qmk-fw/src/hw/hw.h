@@ -28,6 +28,7 @@ extern "C" {
 #include "qspi.h"
 #include "adc.h"
 #include "eeprom.h"
+#include "usb.h"
 
 bool hwInit(void);
 
