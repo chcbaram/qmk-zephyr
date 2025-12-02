@@ -21,13 +21,31 @@
     };
   };  
 
-	hid_dev_0: hid_dev_0 {
+	usb_hid_kbd: hid_kbd {
 		compatible = "zephyr,hid-device";
-		label = "HID0";
+		label = "HID_KBD";
 		protocol-code = "keyboard";
 		in-report-size = <64>;
 		in-polling-period-us = <1000>;
 	};  
+
+	usb_hid_via: hid_via {
+		compatible = "zephyr,hid-device";
+		label = "HID_VIA";
+		protocol-code = "none";
+		in-report-size = <32>;
+    out-report-size = <32>;
+		in-polling-period-us = <1000>;
+    out-polling-period-us = <1000>;
+	};
+
+	usb_hid_exk: hid_exk {
+		compatible = "zephyr,hid-device";
+		label = "HID_EXK";
+		protocol-code = "none";
+		in-report-size = <64>;
+		in-polling-period-us = <1000>;
+  };
 };
 
 &flash0 {
