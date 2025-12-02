@@ -12,8 +12,8 @@
 LOG_MODULE_REGISTER(usbd);
 
 
-#define USB_VID           0x2FE3
-#define USB_PID           0x0001
+#define USB_VID           0x0483
+#define USB_PID           0x5206
 #define USBD_MANUFACTURER "BARAM"
 #define USBD_PRODUCT      "QMK-NRF52"
 
