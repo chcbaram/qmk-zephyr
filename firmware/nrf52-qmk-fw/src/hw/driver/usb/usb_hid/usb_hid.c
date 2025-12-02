@@ -251,7 +251,7 @@ static void via_output_report(const struct device *dev, const uint16_t len, cons
   via_set_report(dev, HID_REPORT_TYPE_OUTPUT, 0U, len, buf);  
 }
 
-struct hid_device_ops kb_ops = 
+struct hid_device_ops kbd_ops = 
 {
   .iface_ready   = kb_iface_ready,
   .get_report    = kb_get_report,
@@ -288,10 +288,15 @@ bool usbHidInit(void)
     LOG_ERR("USB VIA Device is not ready");
     return -EIO;
   }
+  if (!device_is_ready(hid_exk_dev))
+  {
+    LOG_ERR("USB EXK Device is not ready");
+    return -EIO;
+  }
 
   ret = hid_device_register(hid_kbd_dev,
                             hid_report_kbd_desc, sizeof(hid_report_kbd_desc),
-                            &kb_ops);
+                            &kbd_ops);
   if (ret != 0)
   {
     LOG_ERR("Failed to register hid_kbd_dev, %d", ret);
@@ -306,5 +311,14 @@ bool usbHidInit(void)
     LOG_ERR("Failed to register hid_kbd_dev, %d", ret);
     return ret;
   }
+
+  ret = hid_device_register(hid_exk_dev,
+                            hid_report_exk_desc, sizeof(hid_report_exk_desc),
+                            &kbd_ops);
+  if (ret != 0)
+  {
+    LOG_ERR("Failed to register hid_kbd_dev, %d", ret);
+    return ret;
+  }  
   return true;
 }

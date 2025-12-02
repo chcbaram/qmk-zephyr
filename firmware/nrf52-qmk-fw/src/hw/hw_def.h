@@ -19,7 +19,7 @@
 
 
 #define _USE_HW_QSPI
-
+#define _USE_HW_KEYS
 
 #define _USE_HW_LED
 #define      HW_LED_MAX_CH          1
@@ -46,11 +46,13 @@
 
 
 
+
 //-- CLI
 //
 #define _USE_CLI_HW_UART            1
 #define _USE_CLI_HW_BUTTON          1
 #define _USE_CLI_HW_LOG             1
+#define _USE_CLI_HW_KEYS            1
 
 
 #endif

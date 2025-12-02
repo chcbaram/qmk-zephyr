@@ -25,6 +25,7 @@ bool hwInit(void)
   logPrintf("Booting..Date \t\t: %s\r\n", __DATE__); 
   logPrintf("Booting..Time \t\t: %s\r\n", __TIME__);   
   
+  keysInit();
   
   return true;
 }

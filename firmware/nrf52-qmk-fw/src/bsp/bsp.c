@@ -25,4 +25,11 @@ uint32_t millis(void)
 }
 
 
+uint32_t micros(void)
+{
+	k_ticks_t ticks = k_uptime_ticks();
 
+	/* tick → us 변환 */
+	uint64_t us = k_ticks_to_us_near64(ticks);
+	return (uint32_t)us;
+}
