@@ -9,7 +9,7 @@
 	chosen {
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
-		zephyr,code-partition = &slot0_partition;
+		zephyr,code-partition = &code_partition;
     zephyr,console = &uart0;
 	};
 
@@ -74,29 +74,34 @@
 };
 
 &flash0 {
+	/*
+	 * wish60 기준 단일슬롯 레이아웃 (Adafruit nRF52 UF2 부트로더가 미리 플래시됨).
+	 * MCUboot 듀얼슬롯(image-0/image-1)은 사용하지 않는다.
+	 *   sd(MBR)   0x00000000  4KB
+	 *   code      0x00001000  ~844KB   (앱, zephyr,code-partition)
+	 *   storage   0x000d4000  128KB    (NVS/settings, emu-eeprom)
+	 *   boot(UF2) 0x000f4000  48KB     (미리 들어있는 부트로더)
+	 */
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		boot_partition: partition@0 {
-			label = "mcuboot";
-			reg = <0x00000000 DT_SIZE_K(48)>;
+		sd_partition: partition@0 {
+			reg = <0x00000000 0x00001000>;
 		};
 
-		slot0_partition: partition@c000 {
-			label = "image-0";
-			reg = <0x0000c000 DT_SIZE_K(472)>;
+		code_partition: partition@1000 {
+			reg = <0x00001000 0x000d3000>;
 		};
 
-		slot1_partition: partition@82000 {
-			label = "image-1";
-			reg = <0x00082000 DT_SIZE_K(472)>;
-		};
-
-		storage_partition: partition@f8000 {
+		storage_partition: partition@d4000 {
 			label = "storage";
-			reg = <0x000f8000 DT_SIZE_K(32)>;
+			reg = <0x000d4000 0x00020000>;
+		};
+
+		boot_partition: partition@f4000 {
+			reg = <0x000f4000 0x0000c000>;
 		};
 	};
 };

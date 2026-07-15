@@ -20,6 +20,7 @@
 
 #define _USE_HW_QSPI
 #define _USE_HW_KEYS
+#define      HW_KEYS_PRESS_MAX     6      // QMK keyboard report 키 개수(6KRO boot)
 
 #define _USE_HW_LED
 #define      HW_LED_MAX_CH          1
