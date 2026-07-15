@@ -143,13 +143,18 @@ K_MSGQ_DEFINE(kb_msgq, sizeof(struct kb_event), 2, 1);
 UDC_STATIC_BUF_DEFINE(report, KB_REPORT_COUNT);
 static uint32_t kb_duration;
 static bool     kb_ready;
+static bool     via_ready;
 static uint8_t  kb_led_state;
+
+// VIA raw HID 수신 콜백(호스트→디바이스 OUT 리포트). port/via_hid.c 가 등록.
+static void (*via_receive_cb)(uint8_t *data, uint8_t length);
 
 // hid_device_submit_report() 는 report 버퍼가 정렬돼야 하고, input_report_done
 // 콜백이 없으면 동기(전송 완료까지 블록)로 처리된다. QMK 리포트를 정렬 버퍼로
 // 복사해 전송한다. (동기 전송이라 단일 정적 버퍼로 충분)
 static uint8_t __aligned(4) kbd_tx_buf[KB_REPORT_COUNT];
 static uint8_t __aligned(4) exk_tx_buf[8];
+static uint8_t __aligned(4) via_tx_buf[32];
 
 
 // static void input_cb(struct input_event *evt, void *user_data)
@@ -220,16 +225,13 @@ static void kb_set_protocol(const struct device *dev, const uint8_t proto)
 
 static void kb_output_report(const struct device *dev, const uint16_t len, const uint8_t *const buf)
 {
-  logPrintf("kb_output_report\n");
-  LOG_HEXDUMP_DBG(buf, len, "o.r.");
-  kb_set_report(dev, HID_REPORT_TYPE_OUTPUT, 0U, len, buf);  
+  kb_set_report(dev, HID_REPORT_TYPE_OUTPUT, 0U, len, buf);
 }
 
 static void via_iface_ready(const struct device *dev, const bool ready)
 {
-  logPrintf("via_iface_ready()\n");
   LOG_INF("VIA device %s interface is %s", dev->name, ready ? "ready" : "not ready");
-  kb_ready = ready;
+  via_ready = ready;
 }
 
 static int via_get_report(const struct device *dev,
@@ -237,31 +239,63 @@ static int via_get_report(const struct device *dev,
                          uint8_t *const buf)
 {
   LOG_WRN("VIA Get Report not implemented, Type %u ID %u", type, id);
-  logPrintf("via_get_report()\n");
   return 0;
 }
+
+// VIA OUT 리포트 처리 큐. USB 수신 콜백(via_output_report) 안에서 응답(raw_hid_send →
+// hid_device_submit_report, 동기)을 바로 보내면 USB 스택 컨텍스트에서 재진입/블록되어
+// VIA 가 "Loading" 에서 멈춘다. 그래서 OUT 리포트를 큐에 넣고 전용 스레드가 처리한다.
+K_MSGQ_DEFINE(via_rx_msgq, 32, 8, 4);
+
+// 호스트→디바이스 32바이트 OUT 리포트를 큐에 적재(콜백 컨텍스트에서 즉시 반환).
+static void via_deliver(const uint8_t *const buf, const uint16_t len)
+{
+  uint8_t  msg[32];
+  uint16_t n = (len < sizeof(msg)) ? len : sizeof(msg);
+
+  memset(msg, 0, sizeof(msg));
+  memcpy(msg, buf, n);
+  k_msgq_put(&via_rx_msgq, msg, K_NO_WAIT);
+}
+
+// VIA 처리 스레드: 큐에서 OUT 리포트를 꺼내 raw_hid_receive 처리(응답 전송 포함)를
+// USB 콜백 밖에서 수행한다.
+static void via_process_thread(void *p1, void *p2, void *p3)
+{
+  ARG_UNUSED(p1);
+  ARG_UNUSED(p2);
+  ARG_UNUSED(p3);
+
+  uint8_t buf[32];
+
+  for (;;)
+  {
+    k_msgq_get(&via_rx_msgq, buf, K_FOREVER);
+    if (via_receive_cb != NULL)
+    {
+      via_receive_cb(buf, sizeof(buf));
+    }
+  }
+}
+
+K_THREAD_DEFINE(via_tid, 2048, via_process_thread, NULL, NULL, NULL, 6, 0, 0);
 
 static int via_set_report(const struct device *dev,
                          const uint8_t type, const uint8_t id, const uint16_t len,
                          const uint8_t *const buf)
 {
-  logPrintf("via_set_report()\n");
-
   if (type != HID_REPORT_TYPE_OUTPUT)
   {
     LOG_WRN("Unsupported report type");
     return -ENOTSUP;
   }
-
-  LOG_WRN("VIA Set Report not implemented, Type %u ID %u", type, id);
-
+  via_deliver(buf, len);   // control endpoint SET_REPORT 경로
   return 0;
 }
 
 static void via_output_report(const struct device *dev, const uint16_t len, const uint8_t *const buf)
 {
-  logPrintf("via_output_report\n");
-  via_set_report(dev, HID_REPORT_TYPE_OUTPUT, 0U, len, buf);  
+  via_deliver(buf, len);   // interrupt OUT endpoint 경로(VIA 기본)
 }
 
 struct hid_device_ops kbd_ops = 
@@ -322,6 +356,28 @@ bool usbHidSendReportEXK(uint8_t *data, uint16_t length)
 uint8_t usbHidGetKbdLeds(void)
 {
   return kb_led_state;
+}
+
+// VIA 수신 콜백 등록 (port/via_hid.c 의 via_hid_receive).
+void usbHidSetViaReceiveFunc(void (*func)(uint8_t *data, uint8_t length))
+{
+  via_receive_cb = func;
+}
+
+// VIA 응답(디바이스→호스트 32바이트 IN 리포트) 전송. QMK raw_hid_send → 이 함수.
+bool usbHidSendReportVia(uint8_t *data, uint16_t length)
+{
+  if (!via_ready)
+  {
+    return false;
+  }
+  if (length > sizeof(via_tx_buf))
+  {
+    length = sizeof(via_tx_buf);
+  }
+  memcpy(via_tx_buf, data, length);
+
+  return hid_device_submit_report(hid_via_dev, length, via_tx_buf) == 0;
 }
 
 bool usbHidInit(void)

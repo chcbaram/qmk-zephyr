@@ -4,7 +4,7 @@
     "maintainer": "chcbaram",
     "usb": {
         "vid": "0x0483",
-        "pid": "0x5206",
+        "pid": "0x5208",
         "device_version": "1.0.0"
     },
     "matrix_size": {

@@ -95,14 +95,39 @@
 			reg = <0x00001000 0x000d3000>;
 		};
 
-		storage_partition: partition@d4000 {
+		/* QMK 키맵 영속화용 emu-eeprom 백엔드 (32KB = 8 페이지) */
+		eeprom_partition: partition@d4000 {
+			label = "eeprom";
+			reg = <0x000d4000 0x00008000>;
+		};
+
+		/* 향후 NVS/settings (BLE bond 등, Phase 5) */
+		storage_partition: partition@dc000 {
 			label = "storage";
-			reg = <0x000d4000 0x00020000>;
+			reg = <0x000dc000 0x00018000>;
 		};
 
 		boot_partition: partition@f4000 {
 			reg = <0x000f4000 0x0000c000>;
 		};
+	};
+};
+
+/ {
+	/* 플래시 에뮬레이션 EEPROM: QMK dynamic_keymap 의 바이트 주소 저장소.
+	 * rambuf 로 읽기 속도 확보(키 조회 잦음). size 는 config.h TOTAL_EEPROM_BYTE_COUNT 와 일치.
+	 */
+	eeprom0: eeprom {
+		compatible = "zephyr,emu-eeprom";
+		size = <4096>;          /* 논리 EEPROM 크기 = config.h TOTAL_EEPROM_BYTE_COUNT */
+		pagesize = <0x2000>;    /* 에뮬 페이지(=플래시 2페이지). size 보다 커야 함 */
+		partition = <&eeprom_partition>;
+		/* 전력 최적화:
+		 *  - partition-erase: 파티션이 다 찰 때까지 erase 를 지연/통합 → 플래시 erase 횟수 최소.
+		 *  - rambuf: 읽기를 RAM 에서 → 플래시 read 회피.
+		 * (플래시 write 통합은 port/platforms/eeprom.c 의 디바운스 블록 flush 가 담당) */
+		rambuf;
+		partition-erase;
 	};
 };
 

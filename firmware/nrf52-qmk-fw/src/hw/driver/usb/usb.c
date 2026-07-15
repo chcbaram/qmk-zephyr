@@ -8,14 +8,28 @@
 #include <zephyr/usb/bos.h>
 
 #include <zephyr/logging/log.h>
+#include <hal/nrf_power.h>
 
 LOG_MODULE_REGISTER(usbd);
 
 
+// USB VID/PID/제품명은 빌드 대상 키보드(config.h)에서 가져온다(보드마다 상이).
+#ifdef QMK_KEYMAP_CONFIG_H
+#include QMK_KEYMAP_CONFIG_H
+#endif
+
+#ifndef USB_VID
 #define USB_VID           0x0483
-#define USB_PID           0x5206
+#endif
+#ifndef USB_PID
+#define USB_PID           0x5208
+#endif
 #define USBD_MANUFACTURER "BARAM"
+#ifdef KBD_NAME
+#define USBD_PRODUCT      KBD_NAME
+#else
 #define USBD_PRODUCT      "QMK-NRF52"
+#endif
 
 
 
@@ -239,6 +253,17 @@ bool usbInit(void)
     {
       LOG_ERR("usbd_enable()");
       return false;
+    }
+  }
+  else if (nrf_power_usbregstatus_vbusdet_get(NRF_POWER))
+  {
+    // VBUS 감지형인데 부팅 시 이미 USB 가 연결(VBUS High)돼 있으면 VBUS_READY '엣지'
+    // 이벤트가 오지 않아 enable 이 안 된다. 현재 VBUS 상태를 직접 읽어 즉시 enable.
+    // (재플러그 없이 부팅 직후 열거되도록. 이후 hotplug 는 msg_cb 가 처리)
+    int ret = usbd_enable(p_usbd);
+    if (ret)
+    {
+      LOG_ERR("usbd_enable() at boot (%d)", ret);
     }
   }
 

@@ -6,7 +6,7 @@
 
 
 #define _DEF_FIRMWATRE_VERSION      "V250929R1"
-#define _DEF_BOARD_NAME             "NRF52-QMK-FW"
+#define _DEF_BOARD_NAME             "QMK-ZEPHYR"
 
 
 
