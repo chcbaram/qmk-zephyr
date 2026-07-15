@@ -143,6 +143,13 @@ K_MSGQ_DEFINE(kb_msgq, sizeof(struct kb_event), 2, 1);
 UDC_STATIC_BUF_DEFINE(report, KB_REPORT_COUNT);
 static uint32_t kb_duration;
 static bool     kb_ready;
+static uint8_t  kb_led_state;
+
+// hid_device_submit_report() 는 report 버퍼가 정렬돼야 하고, input_report_done
+// 콜백이 없으면 동기(전송 완료까지 블록)로 처리된다. QMK 리포트를 정렬 버퍼로
+// 복사해 전송한다. (동기 전송이라 단일 정적 버퍼로 충분)
+static uint8_t __aligned(4) kbd_tx_buf[KB_REPORT_COUNT];
+static uint8_t __aligned(4) exk_tx_buf[8];
 
 
 // static void input_cb(struct input_event *evt, void *user_data)
@@ -183,6 +190,12 @@ static int kb_set_report(const struct device *dev,
   {
     LOG_WRN("Unsupported report type");
     return -ENOTSUP;
+  }
+
+  // boot keyboard output report = 1바이트 LED 비트맵 (NumLock/CapsLock/ScrollLock)
+  if (len >= 1)
+  {
+    kb_led_state = buf[0];
   }
   return 0;
 }
@@ -273,8 +286,46 @@ struct hid_device_ops via_ops =
   .output_report = via_output_report,
 };
 
+// QMK host driver(port/driver_usb.c) 가 호출하는 전송 API.
+// 키보드 리포트(boot 8바이트: mods+reserved+keys[6])를 kbd HID IN 으로 전송.
+bool usbHidSendReport(uint8_t *data, uint16_t length)
+{
+  if (!kb_ready)
+  {
+    return false;
+  }
+  if (length > sizeof(kbd_tx_buf))
+  {
+    length = sizeof(kbd_tx_buf);
+  }
+  memcpy(kbd_tx_buf, data, length);
+
+  return hid_device_submit_report(hid_kbd_dev, length, kbd_tx_buf) == 0;
+}
+
+// System/Consumer control 리포트(report_extra_t: report_id + usage16)를 exk HID IN 으로 전송.
+bool usbHidSendReportEXK(uint8_t *data, uint16_t length)
+{
+  if (!kb_ready)
+  {
+    return false;
+  }
+  if (length > sizeof(exk_tx_buf))
+  {
+    length = sizeof(exk_tx_buf);
+  }
+  memcpy(exk_tx_buf, data, length);
+
+  return hid_device_submit_report(hid_exk_dev, length, exk_tx_buf) == 0;
+}
+
+uint8_t usbHidGetKbdLeds(void)
+{
+  return kb_led_state;
+}
+
 bool usbHidInit(void)
-{  
+{
 	int ret;
 
 
