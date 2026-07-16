@@ -1,5 +1,6 @@
 #include "ap.h"
 #include "qmk/qmk.h"
+#include "qmk/port/activity.h"
 
 
 // 개발용 하트비트 LED (루프가 도는지/잠들었는지 눈으로 확인용).
@@ -25,6 +26,7 @@ void apMain(void)
   ledOff(_DEF_LED1);   // 저전력: 기본 소등
 
   qmkInit();
+  activityInit();
 
   while(1)
   {
@@ -37,7 +39,13 @@ void apMain(void)
 #endif
       // 완전 idle(눌린 키 없음 + 디바운스 정착): 입력이 올 때까지 블록 → CPU sleep.
       // kbd-matrix 드라이버도 전 컬럼 구동 + row 인터럽트 대기로 들어간다(저전력).
-      qmkWaitActivity();
+      //
+      // activityUpdate() 가 idle/sleep 을 판정한다. sleep 조건이 차면 System OFF 로
+      // 들어가 **돌아오지 않는다**(키 누르면 리셋 부팅).
+      activityUpdate();
+
+      // 키 입력 또는 다음 상태 전이(데드라인)까지 블록. 0 이면 무한.
+      qmkWaitActivity(activityGetWaitMs());
     }
     else
     {

@@ -13,7 +13,11 @@ void qmkUpdate(void);
 // 저전력: 눌린 키가 없고 디바운스가 정착했으면 true → 메인 루프가 잠들어도 된다.
 bool qmkIsIdle(void);
 // 키 입력이 있을 때까지 블록(그 동안 CPU sleep). 입력 이벤트가 깨운다.
-void qmkWaitActivity(void);
+// timeout_ms == 0 이면 무한 대기. activity 상태머신이 데드라인을 넘겨준다.
+void qmkWaitActivity(uint32_t timeout_ms);
+
+// 마지막 키 입력 이후 경과 시간(ms). activity 상태머신이 idle/sleep 판정에 쓴다.
+uint32_t qmkGetInactiveMs(void);
 
 #ifdef __cplusplus
 }
