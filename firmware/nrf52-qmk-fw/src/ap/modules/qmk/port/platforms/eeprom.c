@@ -1,4 +1,5 @@
 #include "quantum.h"
+#include "log.h"   // logPrintf (콘솔 비활성 빌드에선 no-op)
 #include <zephyr/device.h>
 #include <zephyr/drivers/eeprom.h>
 

@@ -1,6 +1,10 @@
 #include "ap_def.h"
 
 
+// 저전력 빌드에선 CLI 를 통째로 제외한다(hw_def.h 의 _USE_HW_DEBUG_CONSOLE).
+#ifdef _USE_HW_CLI
+
+
 static bool init(void);
 static void cliThread(void const *arg);
 
@@ -52,3 +56,4 @@ void cliThread(void const *arg)
   }
 }
 
+#endif   // _USE_HW_CLI
