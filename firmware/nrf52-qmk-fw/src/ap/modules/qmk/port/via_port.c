@@ -64,12 +64,14 @@ void viaPortInit(void)
  * data = [command_id, channel_id, value_id, value_data...]
  * 처리 못 하면 command_id 에 id_unhandled(0xFF) 를 넣어야 VIA 가 안다.
  *
- * [값 폭] VIA 컨트롤 타입마다 다르다(baram-qmk 구현 기준):
- *   toggle / range / dropdown : 1바이트  (value_data[0])
- *   color                     : 2바이트  (hue, sat)
- *   keycode                   : 2바이트  빅엔디안 (port/kill_switch.c 참고)
- * 우리는 dropdown 이므로 **1바이트**다 → 타임아웃 단위를 초/분으로 잡아 0~255 에 넣는다.
- * (근거: quantum/via.c 의 via_qmk_backlight_get_value 가 value_data[0] 만 쓴다)
+ * [값 폭] 컨트롤 타입이 정한다 (공식 스펙: https://caniusevia.com/docs/custom_ui)
+ *   toggle   : 1바이트 (0/1)
+ *   range    : max<=255 면 1바이트, 아니면 **2바이트 빅엔디안**  ← 최댓값에 따라 달라진다
+ *   dropdown : 1바이트 (인덱스 또는 지정값)
+ *   button   : 1바이트
+ *   color    : 2바이트 (hue, sat)
+ *   keycode  : 2바이트 빅엔디안 (port/kill_switch.c 참고)
+ * 우리는 dropdown → 1바이트. 그래서 타임아웃 단위를 초/분으로 잡아 0~255 에 넣는다.
  */
 void via_custom_value_command_kb(uint8_t *data, uint8_t length)
 {
