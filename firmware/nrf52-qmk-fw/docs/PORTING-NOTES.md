@@ -181,11 +181,37 @@ program/erase 가 EEPROM 최대 에너지원이므로 앞의 둘이 핵심.
   타임아웃은 `dropdown` → 1바이트라 단위를 **초/분**으로 잡아 0~255 에 맞췄다.
 - **드롭다운 기본값 주의**: `activity.c` 의 기본값(30초/60분)이 `options` 목록에 없으면
   VIA 가 빈 칸으로 표시한다. 기본값을 바꾸면 JSON 목록도 같이 볼 것.
-- 저장은 `VIA_EEPROM_CUSTOM_CONFIG_ADDR`. **크기(`VIA_EEPROM_CUSTOM_CONFIG_SIZE`)를 바꾸면
-  dynamic keymap 시작 주소가 밀린다** → 향후 TX power/디바운스까지 들어갈 자리를 미리 16B 로
-  잡아 고정했다. (어차피 VIA 는 `QMK_BUILDDATE` 매직으로 유효성을 보므로 **펌웨어를 새로
-  올리면 키맵은 초기화된다** — VIA 표준 동작이다.)
+#### EEPROM 배치 — 크기를 바꾸지 말고 오프셋으로 늘린다 (중요)
+
+QMK EEPROM 주소는 **앞 영역 크기의 누적**이다:
+`EECONFIG_BASE_SIZE + EECONFIG_KB_DATA_SIZE + EECONFIG_USER_DATA_SIZE`(=`EECONFIG_SIZE`)
+→ `VIA_EEPROM_MAGIC_ADDR` → `VIA_EEPROM_CUSTOM_CONFIG_SIZE` → `DYNAMIC_KEYMAP_EEPROM_START`.
+즉 **앞쪽 크기를 건드리면 사용자 키맵이 통째로 밀린다.**
+
+→ baram-qmk/VENOM 방식을 따른다: `EECONFIG_USER_DATA_SIZE` 를 **512B 로 한 번 잡아 고정**하고
+   설정은 그 안에서 **직접 오프셋**으로 배치(`port/port.h` 맵). 새 설정은 빈 오프셋을 쓰면 되므로
+   크기가 안 바뀌고 키맵이 살아남는다.
+   (`VIA_EEPROM_CUSTOM_CONFIG_SIZE` 를 쓰면 항목 추가마다 크기가 바뀌어 매번 키맵이 밀린다 —
+    실제로 그렇게 짰다가 키맵이 전부 틀어졌다)
+
+**`QMK_BUILDDATE`(port/version.h)는 고정 문자열**이다. 실제 빌드 날짜가 아니라서 **펌웨어를
+업데이트해도 키맵이 살아남는다**(baram-qmk 원본도 동일). 대신 **EEPROM 레이아웃을 바꿨다면
+반드시 이 값을 올려야** 한다 — 안 올리면 EEPROM 이 "유효"로 판정돼 옛 데이터를 어긋난 주소에서
+읽는다. 반대로 로직만 바뀐 업데이트에서 올리면 사용자 키맵이 날아간다.
+
+**`eeconfig_init_user_datablock()` 은 사용자 영역을 0 으로 민다** → 각 항목은 "저장된 적 있음"을
+스스로 판별해야 한다(`power_cfg.c` 는 magic 바이트, baram `debounce_cfg.c` 는 범위 검증).
 - 같은 통로로 나중에 **TX power**(반드시 `bleSetTxPower()` 래퍼로 — §4.3)와 **런타임 디바운스**를 태운다.
+
+#### 파일 구성 (baram-qmk 와 동일)
+
+| 위치 | 역할 |
+|---|---|
+| `port/via/via_port.h` 규약, `port/via/*.c` | **공용 기능** — 기능마다 자기 EEPROM + VIA 값 핸들러를 소유 (`power_cfg.c`, `sys_port.c`) |
+| `keyboards/<vendor>/<kbd>/port/via_port.c` | **보드별 라우터** — `via_custom_value_command_kb()` 오버라이드, 그 보드가 노출할 채널만 연결 |
+
+보드마다 노출 채널이 다르므로 라우터는 키보드 트리에 둔다.
+`SYSTEM` 채널(9)은 VENOM 과 동일: DFU 진입 + **토글 3개를 모두 켜야** 실행되는 EEPROM 초기화.
 
 ### 2.8 USB PID 는 보드마다 분리
 
