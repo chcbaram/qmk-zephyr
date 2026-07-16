@@ -10,6 +10,11 @@
 #include <bluetooth/services/hids.h>
 #include <zephyr/bluetooth/services/bas.h>
 #include "battery.h"
+#include "cli.h"
+
+#if CLI_USE(HW_BLE)
+static void cliBle(cli_args_t *args);
+#endif
 
 /*
  * BLE HID (HOG) — NCS BT_HIDS 사용. (ZMK 는 GATT 를 직접 짜지만 NCS 는 기성 서비스 제공)
@@ -48,9 +53,27 @@ BT_HIDS_DEF(hids_obj,
             BLE_EXTRA_REPORT_LEN,
             BLE_EXTRA_REPORT_LEN);
 
-static struct bt_conn *cur_conn;
 static uint8_t         led_state;
 static bool            is_init = false;
+
+/*
+ * 프로파일 (ZMK app/src/ble.c 패턴).
+ *
+ * peer 가 BT_ADDR_LE_ANY = "비어있음"(새 호스트를 받을 수 있음).
+ * ZMK 와 동일하게 **광고는 항상 열린 광고**를 쓴다. directed advertising 은 프라이버시를
+ * 쓰는 호스트(주소가 계속 바뀜)에서 깨지기 때문에 ZMK 도 주석 처리해 뒀다.
+ * 대신 "어느 호스트가 붙어 있느냐"가 아니라 **어느 conn 으로 리포트를 보내느냐**로 전환한다
+ * → 5대가 동시에 붙어 있어도 활성 프로파일만 키를 받는다(전환 시 재연결 대기 없음).
+ */
+typedef struct
+{
+  bt_addr_le_t peer;
+} ble_profile_t;
+
+static ble_profile_t profiles[BLE_PROFILE_COUNT];
+static uint8_t       active_profile = 0;
+
+static void ble_advertising_update(void);
 
 static const struct bt_data ad[] = {
   BT_DATA_BYTES(BT_DATA_GAP_APPEARANCE,
@@ -160,21 +183,156 @@ static void boot_kb_outp_rep_handler(struct bt_hids_rep *rep, struct bt_conn *co
   led_outp_rep_handler(rep, conn, write);
 }
 
-static void advertising_start(void)
+/*
+ * settings(NVS) 저장. 키 이름은 ZMK 와 같은 규약을 쓴다.
+ *   ble/profiles/<n> : 해당 프로파일의 peer 주소
+ *   ble/active       : 활성 프로파일 인덱스
+ */
+static void ble_profile_save(uint8_t index)
 {
-  int err;
+  char key[32];
 
-  err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_1, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
-  if (err == -EALREADY)
+  snprintf(key, sizeof(key), "ble/profiles/%d", index);
+  settings_save_one(key, &profiles[index].peer, sizeof(bt_addr_le_t));
+}
+
+static void ble_active_save(void)
+{
+  settings_save_one("ble/active", &active_profile, sizeof(active_profile));
+}
+
+// settings_load() 가 부팅 시 저장된 값을 여기로 되돌려준다.
+static int ble_settings_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
+{
+  const char *next;
+
+  if (settings_name_steq(name, "active", &next) && !next)
+  {
+    uint8_t idx;
+
+    if (read_cb(cb_arg, &idx, sizeof(idx)) > 0 && idx < BLE_PROFILE_COUNT)
+    {
+      active_profile = idx;
+    }
+    return 0;
+  }
+
+  if (settings_name_steq(name, "profiles", &next) && next)
+  {
+    int idx = atoi(next);
+
+    if (idx >= 0 && idx < BLE_PROFILE_COUNT)
+    {
+      if (read_cb(cb_arg, &profiles[idx].peer, sizeof(bt_addr_le_t)) <= 0)
+      {
+        bt_addr_le_copy(&profiles[idx].peer, BT_ADDR_LE_ANY);
+      }
+    }
+    return 0;
+  }
+
+  return -ENOENT;
+}
+
+SETTINGS_STATIC_HANDLER_DEFINE(ble_port, "ble", NULL, ble_settings_set, NULL, NULL);
+
+static void ble_profile_set_addr(uint8_t index, const bt_addr_le_t *addr)
+{
+  char str[BT_ADDR_LE_STR_LEN];
+
+  bt_addr_le_copy(&profiles[index].peer, addr);
+  ble_profile_save(index);
+
+  bt_addr_le_to_str(addr, str, sizeof(str));
+  logPrintf("[  ] ble profile %d -> %s\n", index, str);
+}
+
+bool bleProfileIsOpen(uint8_t index)
+{
+  if (index >= BLE_PROFILE_COUNT)
+  {
+    return false;
+  }
+  return bt_addr_le_cmp(&profiles[index].peer, BT_ADDR_LE_ANY) == 0;
+}
+
+// 해당 프로파일의 peer 로 맺어진 연결을 찾는다. 없으면 NULL.
+// 반환된 conn 은 bt_conn_lookup_addr_le() 가 ref 를 올리므로 **호출자가 unref 해야 한다**.
+static struct bt_conn *ble_profile_conn(uint8_t index)
+{
+  if (index >= BLE_PROFILE_COUNT || bleProfileIsOpen(index))
+  {
+    return NULL;
+  }
+  return bt_conn_lookup_addr_le(BT_ID_DEFAULT, &profiles[index].peer);
+}
+
+bool bleProfileIsConnected(uint8_t index)
+{
+  struct bt_conn *conn = ble_profile_conn(index);
+
+  if (conn == NULL)
+  {
+    return false;
+  }
+  bt_conn_unref(conn);
+  return true;
+}
+
+uint8_t bleProfileGetActive(void)
+{
+  return active_profile;
+}
+
+/*
+ * 광고는 활성 프로파일 기준으로만 켠다(ZMK update_advertising 과 동일한 판단):
+ *   - 활성 프로파일이 비어있다            -> 광고(새 호스트 페어링을 받는다)
+ *   - 활성 프로파일이 있는데 연결 안 됨   -> 광고(그 호스트가 돌아오길 기다린다)
+ *   - 활성 프로파일이 연결됨              -> 광고 중지 (라디오/전력 절약)
+ * 비활성 프로파일의 호스트는 자기가 알아서 재연결한다(본딩돼 있으므로).
+ */
+static bool adv_running = false;
+
+static void ble_advertising_update(void)
+{
+  bool want_adv;
+  int  err;
+
+  if (!is_init)
   {
     return;
   }
-  if (err)
+
+  want_adv = bleProfileIsOpen(active_profile) || !bleProfileIsConnected(active_profile);
+
+  if (want_adv == adv_running)
   {
-    logPrintf("[E_] ble adv start (%d)\n", err);
     return;
   }
-  logPrintf("[  ] ble advertising\n");
+
+  if (want_adv)
+  {
+    err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_1, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+    if (err && err != -EALREADY)
+    {
+      logPrintf("[E_] ble adv start (%d)\n", err);
+      return;
+    }
+    logPrintf("[  ] ble advertising (profile %d, %s)\n",
+              active_profile, bleProfileIsOpen(active_profile) ? "open" : "reconnect");
+  }
+  else
+  {
+    err = bt_le_adv_stop();
+    if (err && err != -EALREADY)
+    {
+      logPrintf("[E_] ble adv stop (%d)\n", err);
+      return;
+    }
+    logPrintf("[  ] ble adv stop (profile %d connected)\n", active_profile);
+  }
+
+  adv_running = want_adv;
 }
 
 static void connected(struct bt_conn *conn, uint8_t err)
@@ -189,12 +347,16 @@ static void connected(struct bt_conn *conn, uint8_t err)
   }
 
   logPrintf("[OK] ble connected %s\n", addr);
-  cur_conn = bt_conn_ref(conn);
 
   if (bt_hids_connected(&hids_obj, conn))
   {
     logPrintf("[E_] bt_hids_connected\n");
   }
+
+  // 여러 호스트가 동시에 붙을 수 있다. conn 을 우리가 붙들지 않고(ref 안 함) 필요할 때
+  // 활성 프로파일 주소로 조회한다 -> 프로파일 전환이 곧 전송 대상 전환이 된다.
+  adv_running = false;   // 연결되면 컨트롤러가 광고를 멈춘다
+  ble_advertising_update();
 
   k_work_schedule(&bas_work, K_NO_WAIT);   // 연결 직후 1회 + 이후 60초 주기
 }
@@ -208,13 +370,11 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
     logPrintf("[E_] bt_hids_disconnected\n");
   }
 
-  if (cur_conn)
+  if (!bleIsConnected())
   {
-    bt_conn_unref(cur_conn);
-    cur_conn = NULL;
+    k_work_cancel_delayable(&bas_work);
   }
-  k_work_cancel_delayable(&bas_work);
-  advertising_start();
+  ble_advertising_update();
 }
 
 // 실제로 협상된 연결 파라미터. 호스트가 우리 요청(PPCP)을 거부/변경할 수 있으므로 확인용.
@@ -245,6 +405,58 @@ static void security_changed(struct bt_conn *conn, bt_security_t level, enum bt_
   }
   logPrintf("[OK] ble security level %u\n", level);
 }
+
+/*
+ * 페어링 — 프로파일이 peer 주소를 학습하는 지점.
+ *
+ * 활성 프로파일이 이미 다른 호스트에게 잡혀 있으면 **페어링을 거부**한다. 안 그러면
+ * 새 호스트가 기존 프로파일을 덮어써서 사용자가 슬롯을 잃는다(ZMK 와 동일한 방어).
+ * 슬롯을 비우려면 사용자가 명시적으로 clear 해야 한다.
+ */
+static bool ble_pairing_allowed(struct bt_conn *conn)
+{
+  return bleProfileIsOpen(active_profile) ||
+         bt_addr_le_cmp(&profiles[active_profile].peer, bt_conn_get_dst(conn)) == 0;
+}
+
+static enum bt_security_err auth_pairing_accept(struct bt_conn *conn,
+                                                const struct bt_conn_pairing_feat *const feat)
+{
+  if (!ble_pairing_allowed(conn))
+  {
+    logPrintf("[E_] ble pairing rejected: profile %d 사용중\n", active_profile);
+    return BT_SECURITY_ERR_PAIR_NOT_ALLOWED;
+  }
+  return BT_SECURITY_ERR_SUCCESS;
+}
+
+static void auth_pairing_complete(struct bt_conn *conn, bool bonded)
+{
+  if (!ble_pairing_allowed(conn))
+  {
+    // 여기까지 왔으면 accept 를 통과했는데 그 사이 프로파일이 바뀐 것 → 본딩을 되돌린다.
+    logPrintf("[E_] ble pairing done but profile %d taken -> unpair\n", active_profile);
+    bt_unpair(BT_ID_DEFAULT, bt_conn_get_dst(conn));
+    return;
+  }
+
+  ble_profile_set_addr(active_profile, bt_conn_get_dst(conn));
+  ble_advertising_update();
+}
+
+static void auth_cancel(struct bt_conn *conn)
+{
+  logPrintf("[  ] ble pairing cancelled\n");
+}
+
+static struct bt_conn_auth_cb auth_cb = {
+  .pairing_accept = auth_pairing_accept,
+  .cancel         = auth_cancel,
+};
+
+static struct bt_conn_auth_info_cb auth_info_cb = {
+  .pairing_complete = auth_pairing_complete,
+};
 
 BT_CONN_CB_DEFINE(conn_callbacks) = {
   .connected         = connected,
@@ -305,6 +517,14 @@ bool bleInit(void)
 
   hid_init();
 
+  for (int i = 0; i < BLE_PROFILE_COUNT; i++)
+  {
+    bt_addr_le_copy(&profiles[i].peer, BT_ADDR_LE_ANY);
+  }
+
+  bt_conn_auth_cb_register(&auth_cb);
+  bt_conn_auth_info_cb_register(&auth_info_cb);
+
   err = bt_enable(NULL);
   if (err)
   {
@@ -318,46 +538,165 @@ bool bleInit(void)
     settings_load();
   }
 
-  advertising_start();
-
   is_init = true;
-  logPrintf("[OK] bleInit()\n");
+  ble_advertising_update();
+
+#if CLI_USE(HW_BLE)
+  cliAdd("ble", cliBle);
+#endif
+
+  logPrintf("[OK] bleInit() profile %d/%d %s\n", active_profile, BLE_PROFILE_COUNT,
+            bleProfileIsOpen(active_profile) ? "(open)" : "(bonded)");
   return true;
 }
 
 bool bleIsConnected(void)
 {
-  return (is_init && cur_conn != NULL);
+  return is_init && bleProfileIsConnected(active_profile);
+}
+
+// 리포트는 **활성 프로파일의 연결로만** 나간다. 다른 호스트가 붙어 있어도 받지 못한다.
+static bool ble_send(uint8_t rep_idx, const uint8_t *data, uint8_t len)
+{
+  struct bt_conn *conn;
+  int             err;
+
+  if (!is_init)
+  {
+    return false;
+  }
+
+  conn = ble_profile_conn(active_profile);
+  if (conn == NULL)
+  {
+    return false;
+  }
+
+  err = bt_hids_inp_rep_send(&hids_obj, conn, rep_idx, (uint8_t *)data, len, NULL);
+  bt_conn_unref(conn);   // ble_profile_conn() 이 올린 ref
+
+  return err == 0;
 }
 
 bool bleSendKeyboard(report_keyboard_t *report)
 {
-  if (!bleIsConnected())
-  {
-    return false;
-  }
   // report_keyboard_t = mods + reserved + keys[6] (Report ID 없음: HOG 는 characteristic 로 구분)
-  return bt_hids_inp_rep_send(&hids_obj, cur_conn, BLE_INP_KEYS_IDX,
-                              (uint8_t *)report, BLE_KBD_REPORT_LEN, NULL) == 0;
+  return ble_send(BLE_INP_KEYS_IDX, (const uint8_t *)report, BLE_KBD_REPORT_LEN);
 }
 
 bool bleSendExtra(report_extra_t *report)
 {
-  uint8_t idx;
-
-  if (!bleIsConnected())
-  {
-    return false;
-  }
-
-  idx = (report->report_id == REPORT_ID_SYSTEM) ? BLE_INP_SYSTEM_IDX : BLE_INP_CONSUMER_IDX;
+  uint8_t idx = (report->report_id == REPORT_ID_SYSTEM) ? BLE_INP_SYSTEM_IDX : BLE_INP_CONSUMER_IDX;
 
   // payload 는 usage 16bit 만 (Report ID 제외)
-  return bt_hids_inp_rep_send(&hids_obj, cur_conn, idx,
-                              (uint8_t *)&report->usage, BLE_EXTRA_REPORT_LEN, NULL) == 0;
+  return ble_send(idx, (const uint8_t *)&report->usage, BLE_EXTRA_REPORT_LEN);
 }
 
 uint8_t bleGetKbdLeds(void)
 {
   return led_state;
 }
+
+
+// ---- 프로파일 전환 --------------------------------------------------------------
+
+bool bleProfileSelect(uint8_t index)
+{
+  if (index >= BLE_PROFILE_COUNT || index == active_profile)
+  {
+    return false;
+  }
+
+  active_profile = index;
+  ble_active_save();
+
+  logPrintf("[  ] ble profile %d %s%s\n", index,
+            bleProfileIsOpen(index) ? "(open)" : "(bonded)",
+            bleProfileIsConnected(index) ? " connected" : "");
+
+  // 전송 대상이 바뀌므로 이전 호스트에 눌린 키가 남지 않도록 빈 리포트를 보낸다.
+  // (host_set_driver 전환 때와 같은 stuck key 방어)
+  ble_advertising_update();
+  return true;
+}
+
+bool bleProfileNext(void)
+{
+  return bleProfileSelect((active_profile + 1) % BLE_PROFILE_COUNT);
+}
+
+bool bleProfilePrev(void)
+{
+  return bleProfileSelect((active_profile + BLE_PROFILE_COUNT - 1) % BLE_PROFILE_COUNT);
+}
+
+bool bleProfileClear(uint8_t index)
+{
+  if (index >= BLE_PROFILE_COUNT)
+  {
+    index = active_profile;
+  }
+  if (bleProfileIsOpen(index))
+  {
+    return false;   // 이미 비어있음
+  }
+
+  bt_unpair(BT_ID_DEFAULT, &profiles[index].peer);
+  ble_profile_set_addr(index, BT_ADDR_LE_ANY);
+  ble_advertising_update();
+
+  logPrintf("[  ] ble profile %d cleared\n", index);
+  return true;
+}
+
+
+#if CLI_USE(HW_BLE)
+void cliBle(cli_args_t *args)
+{
+  bool ret = false;
+
+  if (args->argc == 1 && args->isStr(0, "info"))
+  {
+    char str[BT_ADDR_LE_STR_LEN];
+
+    cliPrintf("active profile : %d\n", active_profile);
+    for (int i = 0; i < BLE_PROFILE_COUNT; i++)
+    {
+      bt_addr_le_to_str(&profiles[i].peer, str, sizeof(str));
+      cliPrintf("  [%d] %s %-30s %s\n",
+                i,
+                i == active_profile ? "*" : " ",
+                bleProfileIsOpen(i) ? "(empty)" : str,
+                bleProfileIsConnected(i) ? "connected" : "");
+    }
+    cliPrintf("advertising    : %s\n", adv_running ? "yes" : "no");
+    ret = true;
+  }
+
+  if (args->argc == 2 && args->isStr(0, "sel"))
+  {
+    bleProfileSelect(args->getData(1));
+    ret = true;
+  }
+
+  if (args->argc == 1 && args->isStr(0, "next"))
+  {
+    bleProfileNext();
+    ret = true;
+  }
+
+  if (args->argc == 2 && args->isStr(0, "clear"))
+  {
+    bleProfileClear(args->getData(1));
+    ret = true;
+  }
+
+  if (ret == false)
+  {
+    cliPrintf("ble info\n");
+    cliPrintf("ble sel   [0~%d]\n", BLE_PROFILE_COUNT - 1);
+    cliPrintf("ble next\n");
+    cliPrintf("ble clear [0~%d]\n", BLE_PROFILE_COUNT - 1);
+  }
+}
+#endif

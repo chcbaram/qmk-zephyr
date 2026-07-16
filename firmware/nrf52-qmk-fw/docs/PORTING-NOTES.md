@@ -151,6 +151,29 @@ program/erase 가 EEPROM 최대 에너지원이므로 앞의 둘이 핵심.
 > TODO(Phase 6): `eeprom_task()` 폴링을 **sleep 진입 훅**으로 옮길 것. 지금 `k_work` 로 다른 스레드에
 > 빼면 flush 와 `eeprom_mark` 간 `eeprom_buf`/dirty 범위 **경쟁 조건**이 생기므로 락 또는 동일 컨텍스트 필수.
 
+### 2.10 BLE 프로파일 5개 (`port/ble.c`) — ZMK 방식
+
+**핵심: "누가 붙어 있나"가 아니라 "어느 conn 으로 보내나"로 전환한다.**
+ZMK 와 동일하게 5대가 **동시에 연결된 채로** 있고, 리포트는 활성 프로파일의 conn 으로만 나간다
+(`ble_profile_conn()` → `bt_hids_inp_rep_send(conn, ...)`). 전환 시 재연결 대기가 없다.
+
+- **directed advertising 은 안 쓴다.** ZMK 도 코드에 넣었다가 주석 처리했다 — 프라이버시를 쓰는
+  호스트는 주소가 계속 바뀌어 깨진다. 그래서 **항상 열린 광고**를 쓴다.
+- 광고 on/off 판단: 활성 프로파일이 비었거나 연결 안 됨 → 광고 / 연결됨 → 중지(전력).
+  비활성 프로파일의 호스트는 본딩돼 있으므로 자기가 알아서 재연결한다.
+- **peer 주소 학습 = 페어링 완료 시점**(`auth_pairing_complete` → 활성 프로파일에 배정).
+  활성 프로파일이 이미 잡혀 있으면 `auth_pairing_accept` 에서 **거부**한다 — 없으면 새 호스트가
+  기존 슬롯을 덮어써 사용자가 프로파일을 잃는다. (`CONFIG_BT_SMP_APP_PAIRING_ACCEPT=y` 필요)
+- 영속화: settings(NVS) `ble/profiles/<n>`(peer), `ble/active`(인덱스) — ZMK 와 같은 키 규약.
+
+**비용**: `BT_MAX_CONN=5` + `BT_HIDS_MAX_CLIENT_COUNT=5` 로 RAM 이 **85KB → 95KB**(+10KB).
+전력은 연결된 호스트 수에 비례해 늘어난다(호스트마다 연결 이벤트가 따로 돈다) — 켜둔 호스트가
+많을수록 idle 이 올라간다. ZMK 도 동일한 트레이드오프다.
+
+**전환 키코드**: VIA `customKeycodes` → `QK_KB_0`(0x7E00)부터 순서대로 매핑.
+`keyboards/<kbd>/port/keycode_port.c` 가 `process_record_kb()`(weak) 를 오버라이드한다.
+**JSON 배열 순서와 C enum 순서가 반드시 일치**해야 한다(VIA 는 인덱스로만 지정).
+
 ### 2.9 VIA 커스텀 채널 (`port/via_port.c`) — 설정을 VIA UI 로
 
 무선/전력 설정을 VIA 에 노출한다. **QMK 코어는 안 건드린다**:

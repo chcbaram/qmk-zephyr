@@ -77,6 +77,7 @@
 #define _USE_CLI_HW_MODULE          1
 #define _USE_CLI_HW_BATTERY         1
 #define _USE_CLI_HW_ACTIVITY        1
+#define _USE_CLI_HW_BLE             1
 
 
 #endif
