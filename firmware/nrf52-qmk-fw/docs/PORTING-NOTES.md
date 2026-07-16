@@ -166,13 +166,17 @@ program/erase 가 EEPROM 최대 에너지원이므로 앞의 둘이 핵심.
 
 - VIA 쪽은 정의 JSON 의 **`menus`**(v3 포맷, `VIA_PROTOCOL_VERSION 0x000C` 필요)에
   `content: [<이름>, <channel>, <value>]` 로 연결한다.
-- **값 폭은 컨트롤 타입이 정한다**(baram-qmk 구현 기준). 틀리면 값이 조용히 어긋난다:
+- **값 폭은 컨트롤 타입이 정한다.** 틀리면 값이 조용히 어긋난다.
+  (출처: [VIA custom_ui 스펙](https://caniusevia.com/docs/custom_ui) — 추측하지 말고 여기를 볼 것)
 
-  | 타입 | 폭 | 예 |
+  | 타입 | 폭 | 비고 |
   |---|---|---|
-  | `toggle` / `range` / `dropdown` | **1바이트** | brightness, debounce time |
-  | `color` | 2바이트 | hue, sat |
-  | `keycode` | 2바이트 **빅엔디안** | `port/kill_switch.c` |
+  | `toggle` | 1B | 0/1 (`options` 로 값 지정 가능) |
+  | `range` | **max≤255 → 1B, 아니면 2B 빅엔디안** | **최댓값이 폭을 바꾼다** |
+  | `dropdown` | 1B | 인덱스 또는 지정값 |
+  | `button` | 1B | |
+  | `color` | 2B | hue, sat |
+  | `keycode` | 2B **빅엔디안** | `port/kill_switch.c` |
 
   타임아웃은 `dropdown` → 1바이트라 단위를 **초/분**으로 잡아 0~255 에 맞췄다.
 - **드롭다운 기본값 주의**: `activity.c` 의 기본값(30초/60분)이 `options` 목록에 없으면
