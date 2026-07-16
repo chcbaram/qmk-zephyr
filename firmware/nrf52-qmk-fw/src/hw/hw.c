@@ -23,9 +23,10 @@ bool hwInit(void)
   logPrintf("Booting..Name \t\t: %s\r\n", _DEF_BOARD_NAME);
   logPrintf("Booting..Ver  \t\t: %s\r\n", _DEF_FIRMWATRE_VERSION);  
   logPrintf("Booting..Date \t\t: %s\r\n", __DATE__); 
-  logPrintf("Booting..Time \t\t: %s\r\n", __TIME__);   
-  
-  keysInit();
-  
+  logPrintf("Booting..Time \t\t: %s\r\n", __TIME__);
+
+  // 키 매트릭스는 Zephyr gpio-kbd-matrix 드라이버가 자동 초기화(DTS kbd_matrix).
+  // QMK 쪽 연결은 qmkInit() -> matrix_init() 에서 수행.
+
   return true;
 }

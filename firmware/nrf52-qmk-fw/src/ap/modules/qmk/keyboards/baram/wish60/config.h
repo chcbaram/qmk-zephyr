@@ -22,6 +22,6 @@
 #define MATRIX_ROWS                 5
 #define MATRIX_COLS                 15
 
-#define DEBOUNCE                    5
+#define DEBOUNCE                    10
 
 #define GRAVE_ESC_ENABLE

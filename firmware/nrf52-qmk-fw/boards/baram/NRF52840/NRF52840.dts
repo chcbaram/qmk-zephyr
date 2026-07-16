@@ -47,30 +47,51 @@
 		in-polling-period-us = <1000>;
   };
 
-  keys {
-		compatible = "gpio-leds";
-		row0:  row_0  { gpios = <&gpio0 13 (GPIO_ACTIVE_HIGH)>; label = "row0";};     
-		row1:  row_1  { gpios = <&gpio0 14 (GPIO_ACTIVE_HIGH)>; label = "row1";};     
-		row2:  row_2  { gpios = <&gpio0 15 (GPIO_ACTIVE_HIGH)>; label = "row2";};     
-		row3:  row_3  { gpios = <&gpio0 16 (GPIO_ACTIVE_HIGH)>; label = "row3";};     
-    row4:  row_4  { gpios = <&gpio1  2 (GPIO_ACTIVE_HIGH)>; label = "row4";};         
+  /*
+   * 키 매트릭스 — Zephyr 네이티브 gpio-kbd-matrix (input 서브시스템).
+   * idle 시 전 컬럼 구동 + row 인터럽트 대기로 CPU sleep, 키 눌림에 wakeup (저전력).
+   *
+   * 명명 주의: Zephyr 는 row-gpios = "입력(인터럽트)", col-gpios = "구동 출력" 이다.
+   * wish60 은 row2col 다이오드라 row 를 구동하고 col 을 읽으므로 역매핑한다:
+   *   row-gpios(입력)  = wish60 col 0..14 (15개)  → QMK 의 col 인덱스
+   *   col-gpios(출력)  = wish60 row 0..4  (5개)   → QMK 의 row 인덱스
+   * 입력 15개라 CONFIG_INPUT_KBD_MATRIX_16_BIT_ROW=y 필요(기본 8비트는 8개 한도).
+   *
+   * 디바운스는 QMK(port/matrix.c 의 debounce())가 담당하므로 드라이버는 0(이중 디바운스 방지).
+   */
+  kbd_matrix: kbd-matrix {
+    compatible = "gpio-kbd-matrix";
 
-    col0:  col_0  { gpios = <&gpio1 11 (GPIO_ACTIVE_HIGH)>; label = "col0";};     
-    col1:  col_1  { gpios = <&gpio1 12 (GPIO_ACTIVE_HIGH)>; label = "col1";};     
-    col2:  col_2  { gpios = <&gpio1 13 (GPIO_ACTIVE_HIGH)>; label = "col2";};     
-    col3:  col_3  { gpios = <&gpio1 14 (GPIO_ACTIVE_HIGH)>; label = "col3";};     
-    col4:  col_4  { gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH)>; label = "col4";};     
-    col5:  col_5  { gpios = <&gpio0  3 (GPIO_ACTIVE_HIGH)>; label = "col5";};     
-    col6:  col_6  { gpios = <&gpio0 17 (GPIO_ACTIVE_HIGH)>; label = "col6";};     
-    col7:  col_7  { gpios = <&gpio0 21 (GPIO_ACTIVE_HIGH)>; label = "col7";};     
-    col8:  col_8  { gpios = <&gpio0 20 (GPIO_ACTIVE_HIGH)>; label = "col8";};      
-    col9:  col_9  { gpios = <&gpio0 23 (GPIO_ACTIVE_HIGH)>; label = "col9";};     
-    col10: col_10 { gpios = <&gpio0 22 (GPIO_ACTIVE_HIGH)>; label = "col10";};     
-    col11: col_11 { gpios = <&gpio1  0 (GPIO_ACTIVE_HIGH)>; label = "col11";};       
-    col12: col_12 { gpios = <&gpio0 24 (GPIO_ACTIVE_HIGH)>; label = "col12";};     
-    col13: col_13 { gpios = <&gpio0 25 (GPIO_ACTIVE_HIGH)>; label = "col13";};          
-    col14: col_14 { gpios = <&gpio1 10 (GPIO_ACTIVE_HIGH)>; label = "col14";};     
-  };   
+    row-gpios = <&gpio1 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* wish60 col0  */
+                <&gpio1 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col1  */
+                <&gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col2  */
+                <&gpio1 14 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col3  */
+                <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col4  */
+                <&gpio0  3 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col5  */
+                <&gpio0 17 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col6  */
+                <&gpio0 21 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col7  */
+                <&gpio0 20 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col8  */
+                <&gpio0 23 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col9  */
+                <&gpio0 22 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col10 */
+                <&gpio1  0 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col11 */
+                <&gpio0 24 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col12 */
+                <&gpio0 25 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col13 */
+                <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;   /* col14 */
+
+    col-gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>,                      /* wish60 row0 */
+                <&gpio0 14 GPIO_ACTIVE_HIGH>,                      /* row1 */
+                <&gpio0 15 GPIO_ACTIVE_HIGH>,                      /* row2 */
+                <&gpio0 16 GPIO_ACTIVE_HIGH>,                      /* row3 */
+                <&gpio1  2 GPIO_ACTIVE_HIGH>;                      /* row4 */
+
+    idle-mode = "interrupt";   /* 키 없을 때 인터럽트 대기 → CPU sleep */
+    wakeup-source;             /* deep sleep(Phase 6)에서 wakeup 소스로 유지 */
+    no-ghostkey-check;         /* 다이오드(row2col) 있으므로 고스팅 검사 불필요 */
+
+    poll-period-ms   = <1>;    /* 키 눌린 동안 1kHz 재스캔 (USB 1ms 폴링 정합) */
+    debounce-down-ms = <0>;    /* 디바운스는 QMK 가 담당 (이중 디바운스 방지) */
+    debounce-up-ms   = <0>;
+  };
 };
 
 &flash0 {

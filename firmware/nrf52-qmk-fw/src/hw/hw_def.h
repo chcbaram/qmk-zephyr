@@ -19,7 +19,9 @@
 
 
 #define _USE_HW_QSPI
-#define _USE_HW_KEYS
+// 키 매트릭스 스캔은 Zephyr 네이티브 gpio-kbd-matrix(DTS: kbd_matrix, 저전력 인터럽트 스캔)가
+// 담당하고 port/matrix.c 가 input 이벤트로 소비한다. 구 폴링 드라이버(driver/keys.c)는 퇴역.
+// #define _USE_HW_KEYS
 #define      HW_KEYS_PRESS_MAX     6      // QMK keyboard report 키 개수(6KRO boot)
 
 #define _USE_HW_LED
