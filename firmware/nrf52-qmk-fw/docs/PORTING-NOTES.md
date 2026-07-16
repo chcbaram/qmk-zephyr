@@ -166,6 +166,17 @@ program/erase 가 EEPROM 최대 에너지원이므로 앞의 둘이 핵심.
 
 - VIA 쪽은 정의 JSON 의 **`menus`**(v3 포맷, `VIA_PROTOCOL_VERSION 0x000C` 필요)에
   `content: [<이름>, <channel>, <value>]` 로 연결한다.
+- **값 폭은 컨트롤 타입이 정한다**(baram-qmk 구현 기준). 틀리면 값이 조용히 어긋난다:
+
+  | 타입 | 폭 | 예 |
+  |---|---|---|
+  | `toggle` / `range` / `dropdown` | **1바이트** | brightness, debounce time |
+  | `color` | 2바이트 | hue, sat |
+  | `keycode` | 2바이트 **빅엔디안** | `port/kill_switch.c` |
+
+  타임아웃은 `dropdown` → 1바이트라 단위를 **초/분**으로 잡아 0~255 에 맞췄다.
+- **드롭다운 기본값 주의**: `activity.c` 의 기본값(30초/60분)이 `options` 목록에 없으면
+  VIA 가 빈 칸으로 표시한다. 기본값을 바꾸면 JSON 목록도 같이 볼 것.
 - 저장은 `VIA_EEPROM_CUSTOM_CONFIG_ADDR`. **크기(`VIA_EEPROM_CUSTOM_CONFIG_SIZE`)를 바꾸면
   dynamic keymap 시작 주소가 밀린다** → 향후 TX power/디바운스까지 들어갈 자리를 미리 16B 로
   잡아 고정했다. (어차피 VIA 는 `QMK_BUILDDATE` 매직으로 유효성을 보므로 **펌웨어를 새로

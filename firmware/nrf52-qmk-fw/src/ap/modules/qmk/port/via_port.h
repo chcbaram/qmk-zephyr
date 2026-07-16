@@ -19,8 +19,9 @@
 
 enum
 {
-  ID_POWER_IDLE_TIMEOUT  = 1,   // 초 단위 (VIA UI 가 다루기 쉬운 단위)
-  ID_POWER_SLEEP_TIMEOUT = 2,   // 분 단위
+  // VIA 의 range 는 1바이트라 0~255 에 들어가는 단위를 쓴다.
+  ID_POWER_IDLE_TIMEOUT  = 1,   // 초  (0 = 비활성)
+  ID_POWER_SLEEP_TIMEOUT = 2,   // 분  (0 = 안 잠)
 };
 
 // EEPROM 에 저장된 설정을 읽어 activity 에 적용. qmkInit() 에서 호출.

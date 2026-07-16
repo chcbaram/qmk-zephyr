@@ -61,8 +61,15 @@ void viaPortInit(void)
 
 /*
  * QMK via.c 의 weak 훅 오버라이드.
- * data = [command_id, channel_id, value_id, value_hi, value_lo]
- * 처리 못 하면 command_id 에 id_unhandled 를 넣어야 VIA 가 안다.
+ * data = [command_id, channel_id, value_id, value_data...]
+ * 처리 못 하면 command_id 에 id_unhandled(0xFF) 를 넣어야 VIA 가 안다.
+ *
+ * [값 폭] VIA 컨트롤 타입마다 다르다(baram-qmk 구현 기준):
+ *   toggle / range / dropdown : 1바이트  (value_data[0])
+ *   color                     : 2바이트  (hue, sat)
+ *   keycode                   : 2바이트  빅엔디안 (port/kill_switch.c 참고)
+ * 우리는 dropdown 이므로 **1바이트**다 → 타임아웃 단위를 초/분으로 잡아 0~255 에 넣는다.
+ * (근거: quantum/via.c 의 via_qmk_backlight_get_value 가 value_data[0] 만 쓴다)
  */
 void via_custom_value_command_kb(uint8_t *data, uint8_t length)
 {
@@ -81,7 +88,7 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length)
   {
     case id_custom_set_value:
     {
-      uint16_t value = ((uint16_t)value_data[0] << 8) | value_data[1];
+      uint8_t value = value_data[0];   // dropdown = 1바이트 (위 주석의 값 폭 규약)
 
       if (*value_id == ID_POWER_IDLE_TIMEOUT)
       {
@@ -100,23 +107,18 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length)
 
     case id_custom_get_value:
     {
-      uint16_t value = 0;
-
       if (*value_id == ID_POWER_IDLE_TIMEOUT)
       {
-        value = (uint16_t)(activityGetIdleTimeout() / 1000);
+        value_data[0] = (uint8_t)(activityGetIdleTimeout() / 1000);
       }
       else if (*value_id == ID_POWER_SLEEP_TIMEOUT)
       {
-        value = (uint16_t)(activityGetSleepTimeout() / (60 * 1000));
+        value_data[0] = (uint8_t)(activityGetSleepTimeout() / (60 * 1000));
       }
       else
       {
         *command_id = id_unhandled;
-        break;
       }
-      value_data[0] = (uint8_t)(value >> 8);
-      value_data[1] = (uint8_t)(value & 0xFF);
       break;
     }
 

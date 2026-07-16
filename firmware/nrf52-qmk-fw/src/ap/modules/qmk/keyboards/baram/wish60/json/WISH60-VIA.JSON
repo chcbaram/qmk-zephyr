@@ -181,27 +181,87 @@
           "label": "Power",
           "content": [
             {
-              "label": "Idle timeout (s)",
-              "type": "range",
+              "label": "Idle Timeout",
+              "type": "dropdown",
               "options": [
-                0,
-                600
+                [
+                  "Off",
+                  0
+                ],
+                [
+                  "5 sec",
+                  5
+                ],
+                [
+                  "10 sec",
+                  10
+                ],
+                [
+                  "15 sec",
+                  15
+                ],
+                [
+                  "30 sec",
+                  30
+                ],
+                [
+                  "1 min",
+                  60
+                ],
+                [
+                  "2 min",
+                  120
+                ],
+                [
+                  "4 min",
+                  240
+                ]
               ],
               "content": [
-                "id_idle_timeout",
+                "id_power_idle_timeout",
                 15,
                 1
               ]
             },
             {
-              "label": "Sleep timeout (min)",
-              "type": "range",
+              "label": "Deep Sleep Timeout",
+              "type": "dropdown",
               "options": [
-                0,
-                720
+                [
+                  "Off",
+                  0
+                ],
+                [
+                  "1 min",
+                  1
+                ],
+                [
+                  "5 min",
+                  5
+                ],
+                [
+                  "10 min",
+                  10
+                ],
+                [
+                  "30 min",
+                  30
+                ],
+                [
+                  "1 hour",
+                  60
+                ],
+                [
+                  "2 hours",
+                  120
+                ],
+                [
+                  "4 hours",
+                  240
+                ]
               ],
               "content": [
-                "id_sleep_timeout",
+                "id_power_sleep_timeout",
                 15,
                 2
               ]
