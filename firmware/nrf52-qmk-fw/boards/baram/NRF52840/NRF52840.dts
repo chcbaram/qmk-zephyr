@@ -1,6 +1,7 @@
 /dts-v1/;
 #include <nordic/nrf52840_qiaa.dtsi>
 #include "NRF52840-pinctrl.dtsi"
+#include <zephyr/dt-bindings/dt-util.h>   // BIT() — sense-edge-mask 를 핀 번호로 쓰기 위해
 
 / {
 	model = "NRF52840";
@@ -152,8 +153,30 @@
 	};
 };
 
+/*
+ * [중요] sense-edge-mask — kbd_matrix 의 row-gpios(입력 15개)를 모두 덮는다.
+ *
+ * Zephyr gpio-kbd-matrix 는 row 인터럽트를 GPIO_INT_EDGE_TO_ACTIVE(엣지)로 건다.
+ * nRF 에서 엣지는 기본적으로 GPIOTE IN 채널을 쓰는데(gpio_nrfx.c), 두 가지 문제가 있다:
+ *   1) nRF52840 의 GPIOTE 채널은 8개뿐인데 우리 입력은 15개 → 9번째부터 -ENOMEM.
+ *      드라이버는 첫 실패에서 곧바로 return 해버려 뒤쪽 row 는 인터럽트가 아예 없다
+ *      (= idle 에서 그 컬럼의 첫 키를 놓친다).
+ *   2) GPIOTE 는 System OFF 에서 꺼진다 → deep sleep 에서 키로 못 깨어난다.
+ *      System OFF 웨이크업은 오직 DETECT(PIN_CNF.SENSE) 로만 일어난다.
+ *
+ * sense-edge-mask 에 넣은 핀은 엣지라도 SENSE(PORT 이벤트)로 처리된다 → 채널 0개 + DETECT.
+ * ZMK 는 kscan 에서 GPIO_INT_LEVEL_ACTIVE(레벨)를 써서 이 분기를 자동으로 타므로
+ * 이 속성이 필요 없다. 네이티브 드라이버(엣지)를 택한 대가를 DTS 로 메우는 것.
+ *
+ * [수정법] 위 row-gpios 의 핀 번호를 그대로 BIT() 로 나열하면 된다(16진수 계산 불필요).
+ * 빠뜨려도 조용히 깨지지 않는다 — port/matrix.c 의 BUILD_ASSERT 가 row-gpios 전 핀이
+ * 마스크에 있는지 검사해서 **빌드를 막는다**. 핀을 바꾸면 빌드 에러가 알려준다.
+ *   gpio0 row 핀: 3, 17, 20, 21, 22, 23, 24, 25
+ */
 &gpio0 {
   status = "okay";
+  sense-edge-mask = <(BIT(3) | BIT(17) | BIT(20) | BIT(21) |
+                      BIT(22) | BIT(23) | BIT(24) | BIT(25))>;
 };
 
 &gpiote {
@@ -177,8 +200,11 @@
   current-speed = <115200>;
 };
 
+// sense-edge-mask 근거는 &gpio0 주석 참고. gpio1 row 핀: 0, 10, 11, 12, 13, 14, 15
 &gpio1 {
   status = "okay";
+  sense-edge-mask = <(BIT(0) | BIT(10) | BIT(11) | BIT(12) |
+                      BIT(13) | BIT(14) | BIT(15))>;
 };
 
 zephyr_udc0: &usbd {
