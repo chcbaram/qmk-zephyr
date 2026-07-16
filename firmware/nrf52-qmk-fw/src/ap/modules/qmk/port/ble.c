@@ -684,6 +684,10 @@ void bleProfileClearAll(void)
   ble_advertising_update();   // 0 번이 이미 활성이었으면 Select 가 no-op 이므로 여기서 한 번 더
 
   logPrintf("[  ] ble all bonds cleared\n");
+  // 호스트 쪽 본딩은 우리가 못 지운다. 남아있으면 그 호스트가 옛 키로 재연결을 계속 시도하고
+  // (연결 -> 암호화 실패 -> 0x13 로 끊김 -> 반복) 그 사이 광고 슬롯을 가로채 새 페어링을 막는다.
+  logPrintf("     주의: 호스트(PC/폰)에서도 이 키보드를 삭제할 것.\n");
+  logPrintf("           안 지우면 옛 키로 재연결을 반복해(0x13) 새 페어링이 막힌다.\n");
 }
 
 
