@@ -173,6 +173,48 @@
       ]
     ]
   },
+  "customKeycodes": [
+    {
+      "name": "BT 1",
+      "title": "BLE 프로파일 1 선택",
+      "shortName": "BT1"
+    },
+    {
+      "name": "BT 2",
+      "title": "BLE 프로파일 2 선택",
+      "shortName": "BT2"
+    },
+    {
+      "name": "BT 3",
+      "title": "BLE 프로파일 3 선택",
+      "shortName": "BT3"
+    },
+    {
+      "name": "BT 4",
+      "title": "BLE 프로파일 4 선택",
+      "shortName": "BT4"
+    },
+    {
+      "name": "BT 5",
+      "title": "BLE 프로파일 5 선택",
+      "shortName": "BT5"
+    },
+    {
+      "name": "BT Next",
+      "title": "다음 프로파일",
+      "shortName": "BT>"
+    },
+    {
+      "name": "BT Prev",
+      "title": "이전 프로파일",
+      "shortName": "BT<"
+    },
+    {
+      "name": "BT Clr",
+      "title": "현재 프로파일 본딩 삭제",
+      "shortName": "BTx"
+    }
+  ],
   "menus": [
     {
       "label": "Wireless",
