@@ -184,6 +184,31 @@ USB 스택 컨텍스트에서 **재진입/블록**되어 응답이 안 나간다
 ### 3.4 `via_iface_ready` 가 `kb_ready` 를 덮어씀
 VIA 인터페이스 ready 콜백이 키보드용 플래그를 건드리던 버그 → `via_ready` 로 분리.
 
+### 3.5 kbd-matrix row 인터럽트가 절반만 걸려 있었다 (`sense-edge-mask`)
+
+**증상(조용함)**: idle 상태에서 **뒤쪽 컬럼의 첫 키를 놓친다.** 로그 한 줄 외엔 아무 표시가 없다.
+게다가 deep sleep 에서 **영영 못 깨어난다**.
+
+**원인**: Zephyr `gpio-kbd-matrix` 는 row 인터럽트를 `GPIO_INT_EDGE_TO_ACTIVE`(**엣지**)로 건다.
+nRF 에서 엣지는 기본이 **GPIOTE IN 채널**이다(`gpio_nrfx.c`) → 두 가지가 동시에 깨진다:
+1. **nRF52840 의 GPIOTE 채널은 8개뿐인데 row-gpios 는 15개.** 9번째부터 `-ENOMEM` 이고
+   드라이버는 **첫 실패에서 곧바로 `return`** 해 나머지 row 는 인터럽트가 아예 없다.
+2. **GPIOTE 는 System OFF 에서 꺼진다.** System OFF 웨이크업은 오직 DETECT(`PIN_CNF.SENSE`)로만.
+
+**해결**: board DTS 의 `&gpio0`/`&gpio1` 에 **`sense-edge-mask`** — 마스크에 든 핀은 엣지라도
+SENSE(PORT 이벤트)로 처리된다 → **채널 0개 + DETECT**. 마스크는 `row-gpios` 를 그대로 덮어야 한다.
+
+**왜 ZMK 엔 없나**: ZMK kscan 은 `GPIO_INT_LEVEL_ACTIVE`(**레벨**)를 써서 애초에 GPIOTE 채널 분기를
+안 탄다(→ SENSE 자동). 이 속성은 **네이티브 드라이버(엣지)를 택한 대가**이고, §2.4 의 트레이드오프가
+현실로 나타난 지점이다. 그래도 판단은 유지 — ZMK kscan 이식은 upstream 이 제거한 서브시스템을
+되살려 NCS 업그레이드마다 관리하는 일이다. **DTS 2줄 vs 영구 부채.**
+
+**재발 방지**:
+- `port/matrix.c` 의 **`BUILD_ASSERT`** 가 `row-gpios` 전 핀이 마스크에 있는지 검사 → 빠지면 **빌드 에러**.
+  (핀 하나를 일부러 빼서 실제로 막히는 것까지 확인함)
+- DTS 는 **`BIT()` 나열**로 쓴다(`#include <zephyr/dt-bindings/dt-util.h>`) — 16진수 계산 불필요,
+  `row-gpios` 목록과 1:1 로 대응해 눈으로 검증된다.
+
 ---
 
 ## 4. 다중 보드 / 확장 노트
@@ -316,6 +341,7 @@ USB 미연결(배터리) + BLE 연결 idle 기준. Nordic Power Profiler.
 | Phase 4 (이벤트 구동 + LED off) | 1.22 mA | 루프가 `qmkWaitActivity()` 로 블록 |
 | Phase 5 (BLE 연결) | 1.21 mA | **BLE 가 더한 전류 ≈ 0** (slave latency 효과) |
 | Phase 6 (콘솔 빌드타임 제거) | **80.9 µA** | UARTE 제거 — **14배** |
+| Phase 6 (deep sleep, System OFF) | **27.7 µA** | 그중 ~25µA 는 MCU 가 아니라 MAX17048 (§6.5) |
 
 ### 6.1 UARTE 가 idle 전류를 지배했다 (가장 큰 교훈)
 
@@ -372,6 +398,33 @@ MAX17048 이 답이다(칩이 부하/이력 보정).
 이 보드에는 외부 32.768kHz 크리스탈이 있고 `K32SRC_XTAL` 이 이미 선택돼 있었지만, board defconfig 가
 아니라 **Zephyr 기본값**에 얹혀 있었다. LFXO/DCDC 는 전류를 좌우하므로 `NRF52840_defconfig` 에 명시했다.
 **크리스탈 없는 보드를 파생시킬 땐 `K32SRC_RC` 로 바꿔야 한다**(안 그러면 LFCLK 가 안 뜬다).
+
+### 6.5 deep sleep (System OFF) — 27.7µA, 여기가 바닥이다
+
+`sys_poweroff()` = nRF52 System OFF. **깨어남 = 리셋 부팅**(RAM 리텐션도 꺼진다) → 타임아웃 1시간.
+웨이크업은 **DETECT(PIN_CNF.SENSE)로만** — `sense-edge-mask` 가 전제다(§3.5). 실기기 검증 완료.
+
+**측정 함정 1 — 디버거가 붙어 있으면 1.5mA 가 나온다.**
+nRF52 는 디버그 인터페이스(DIF)가 활성이면 진짜 System OFF 에 들어가지 않고 **에뮬레이트**한다
+(실측 1.51mA). DIF 는 SWD 를 한 번 붙이면 **핀 리셋/전원 재인가 전까지 래치**되므로 케이블만 뽑아선
+안 풀린다. → 디버거 분리 + **배터리 재인가** 후 측정해야 진짜 값(27.7µA)이 나온다.
+파형으로도 구분된다: 진짜로 자고 있으면 **BLE 광고 스파이크가 없다**(펌웨어가 멈췄으므로).
+
+**측정 함정 2 — 남은 27.7µA 는 MCU 가 아니다.**
+파형: ~25µA 바닥 + **250ms 주기** 430µA 스파이크. 우리 펌웨어는 멈춰 있으므로 MCU 가 아니다.
+정체는 보드의 **MAX17048 연료게이지**(i2c1 @0x36) — 액티브 모드에서 **250ms 마다 셀 전압 측정**,
+소비전류 **23µA(typ)**. 주기와 전류가 둘 다 일치한다. 우리는 I2C 를 켜지도 않아 칩이 POR 기본값
+(액티브)으로 혼자 돈다. ZMK 도 init 에서 `set_sleep_enabled(false)` 로 깨우기만 하고 재우지 않는다.
+→ **nRF52840 자체는 ~1-2µA. System OFF 는 정상 동작 중이다.**
+
+**여기가 바닥인 이유**: 리튬폴리머 자가방전(월 2~3%)이 700mAh 기준 **≈28µA 상당**이다.
+즉 배터리가 스스로 새는 속도가 이미 보드 전체 소비와 같다. 27.7µA → 2.9년(자가방전 무시 시).
+더 줄여도 실수명이 안 는다. **최적화 종료 지점.**
+
+> 나중 메모: 지금은 VDDH 를 쓰므로 MAX17048 이 **아무 일도 안 하면서 23µA** 를 먹는다. 재우면
+> (MODE.EnSleep=1 → CONFIG.SLEEP=1) BLE idle 도 80.9 → ~58µA 가 된다. 다만 연료게이지 백엔드로
+> 확장하면 깨어 있어야 하고, 23µA 가 정확한 잔량의 대가다. 중간값으로 HIBRT 하이버네이트
+> (~3-4µA, 45초 측정)가 있고 키보드엔 45초면 충분하다. I2C 를 켜는 시점에 같이 다룰 것.
 
 ### 6.4 타이핑 중 전류: 3.4mA — QMK 폴링 모델의 값
 
