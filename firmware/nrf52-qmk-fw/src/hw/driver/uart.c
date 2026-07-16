@@ -65,6 +65,8 @@ bool uartInit(void)
     uart_tbl[i].tx_cnt = 0;    
   }
 
+  // console_init() 은 TX(console_write)/RX 양쪽에 필요하다. 스킵하면 console_read() 가
+  // 블록하지 않고 즉시 리턴해 uartReadThread 가 스핀하고(=CPU 항상 busy), TX 도 깨진다.
   console_init();
 
   is_init = true;
