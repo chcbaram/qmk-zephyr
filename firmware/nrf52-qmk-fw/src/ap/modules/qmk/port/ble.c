@@ -182,6 +182,22 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
   advertising_start();
 }
 
+// 실제로 협상된 연결 파라미터. 호스트가 우리 요청(PPCP)을 거부/변경할 수 있으므로 확인용.
+// interval 단위 1.25ms, timeout 단위 10ms. latency 가 0 이면 매 연결 이벤트마다 라디오가 깨어난다.
+static void le_param_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
+{
+  logPrintf("[  ] ble conn param: interval %d.%02dms, latency %d, timeout %dms\n",
+            (interval * 125) / 100, (interval * 125) % 100, latency, timeout * 10);
+  logPrintf("     radio wakeup ~%dms\n", ((interval * 125) / 100) * (latency + 1));
+}
+
+static bool le_param_req(struct bt_conn *conn, struct bt_le_conn_param *param)
+{
+  logPrintf("[  ] ble param req: int %d~%d, lat %d, to %d\n",
+            param->interval_min, param->interval_max, param->latency, param->timeout);
+  return true;
+}
+
 static void security_changed(struct bt_conn *conn, bt_security_t level, enum bt_security_err err)
 {
   char addr[BT_ADDR_LE_STR_LEN];
@@ -196,9 +212,11 @@ static void security_changed(struct bt_conn *conn, bt_security_t level, enum bt_
 }
 
 BT_CONN_CB_DEFINE(conn_callbacks) = {
-  .connected        = connected,
-  .disconnected     = disconnected,
-  .security_changed = security_changed,
+  .connected         = connected,
+  .disconnected      = disconnected,
+  .security_changed  = security_changed,
+  .le_param_req      = le_param_req,
+  .le_param_updated  = le_param_updated,
 };
 
 static void hid_init(void)
