@@ -2,6 +2,12 @@
 #include "qmk/qmk.h"
 
 
+// 개발용 하트비트 LED (루프가 도는지/잠들었는지 눈으로 확인용).
+// 무선 배터리 동작에선 상시 점등이 전류를 크게 먹으므로(실측 ≈1.2mA) 기본은 끈다.
+// 디버깅 때만 아래 define 을 켤 것. 켜면 잠들기 전 반드시 소등한다(토글 방식이라
+// 그냥 블록하면 "켜진 채" 멈출 확률이 50%).
+//#define AP_USE_HEARTBEAT_LED
+
 
 void apInit(void)
 {
@@ -12,7 +18,11 @@ void apInit(void)
 
 void apMain(void)
 {
+#ifdef AP_USE_HEARTBEAT_LED
   uint32_t pre_time = millis();
+#endif
+
+  ledOff(_DEF_LED1);   // 저전력: 기본 소등
 
   qmkInit();
 
@@ -22,6 +32,9 @@ void apMain(void)
 
     if (qmkIsIdle())
     {
+#ifdef AP_USE_HEARTBEAT_LED
+      ledOff(_DEF_LED1);   // 켜진 채로 잠들면 계속 전류를 먹는다
+#endif
       // 완전 idle(눌린 키 없음 + 디바운스 정착): 입력이 올 때까지 블록 → CPU sleep.
       // kbd-matrix 드라이버도 전 컬럼 구동 + row 인터럽트 대기로 들어간다(저전력).
       qmkWaitActivity();
@@ -33,13 +46,12 @@ void apMain(void)
       k_msleep(1);
     }
 
-    // TODO(저전력/Phase 6): 개발용 하트비트 LED. 무선 배터리 동작 시엔 상시 LED 점등이
-    // 전류를 크게 먹으므로 최종 키보드 펌웨어에서는 제거하거나 극소 듀티로 바꿀 것.
+#ifdef AP_USE_HEARTBEAT_LED
     if (millis() - pre_time >= 500)
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);
     }
+#endif
   }
 }
-
