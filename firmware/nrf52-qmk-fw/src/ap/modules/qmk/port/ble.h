@@ -42,8 +42,12 @@ bool    bleProfileSelect(uint8_t index);
 bool    bleProfileNext(void);
 bool    bleProfilePrev(void);
 
-// 해당 프로파일의 본딩을 지운다(index >= COUNT 면 활성 프로파일).
+// 해당 프로파일의 본딩을 지운다.
 bool    bleProfileClear(uint8_t index);
+// 활성 프로파일의 본딩을 지운다 (ZMK BT_CLR).
+bool    bleProfileClearActive(void);
+// 전 프로파일의 본딩을 지우고 프로파일 0 으로 돌아간다 (ZMK BT_CLR_ALL).
+void    bleProfileClearAll(void);
 
 // 프로파일에 본딩된 호스트가 없다 = 새 호스트를 받을 수 있는 상태.
 bool    bleProfileIsOpen(uint8_t index);
