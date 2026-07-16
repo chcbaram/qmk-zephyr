@@ -8,6 +8,8 @@
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/uuid.h>
 #include <bluetooth/services/hids.h>
+#include <zephyr/bluetooth/services/bas.h>
+#include "battery.h"
 
 /*
  * BLE HID (HOG) — NCS BT_HIDS 사용. (ZMK 는 GATT 를 직접 짜지만 NCS 는 기성 서비스 제공)
@@ -114,6 +116,35 @@ static const uint8_t report_map[] = {
 };
 // clang-format on
 
+/*
+ * 배터리 서비스(BAS) 갱신 — 60초 주기(ZMK 의 BATTERY_REPORT_INTERVAL 과 동일).
+ *
+ * 주기를 더 짧게 잡지 않는 이유: 샘플링은 SAADC(또는 I2C)를 깨워 HFCLK 를 잡는다.
+ * idle 80.9µA 를 유지하려면 깨우는 횟수 자체가 비용이다. 배터리 잔량은 분 단위로 변하므로
+ * 60초면 충분하다. 연결이 없으면 아예 돌리지 않는다(광고 중엔 읽어줄 상대도 없다).
+ */
+#define BLE_BAS_INTERVAL_MS   (60 * 1000)
+
+static void bas_work_handler(struct k_work *work);
+static K_WORK_DELAYABLE_DEFINE(bas_work, bas_work_handler);
+
+static void bas_work_handler(struct k_work *work)
+{
+  uint8_t pct;
+
+  if (!bleIsConnected())
+  {
+    return;   // 재연결 시 connected() 가 다시 스케줄한다
+  }
+
+  if (batteryUpdate() && batteryGetPercent(&pct))
+  {
+    bt_bas_set_battery_level(pct);
+  }
+
+  k_work_schedule(&bas_work, K_MSEC(BLE_BAS_INTERVAL_MS));
+}
+
 // 호스트 → 디바이스 LED 리포트(CapsLock 등)
 static void led_outp_rep_handler(struct bt_hids_rep *rep, struct bt_conn *conn, bool write)
 {
@@ -164,6 +195,8 @@ static void connected(struct bt_conn *conn, uint8_t err)
   {
     logPrintf("[E_] bt_hids_connected\n");
   }
+
+  k_work_schedule(&bas_work, K_NO_WAIT);   // 연결 직후 1회 + 이후 60초 주기
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
@@ -180,6 +213,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
     bt_conn_unref(cur_conn);
     cur_conn = NULL;
   }
+  k_work_cancel_delayable(&bas_work);
   advertising_start();
 }
 

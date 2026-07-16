@@ -27,6 +27,9 @@
 #define _USE_HW_LED
 #define      HW_LED_MAX_CH          1
 
+// 배터리 잔량. 백엔드(VDDH ADC / MAX17048)는 DTS 가 정한다 — driver/battery.c
+#define _USE_HW_BATTERY
+
 // [저전력] 디버그 콘솔(UART/CLI/로그).
 //
 // _USE_HW_DEBUG_CONSOLE 은 여기서 정의하지 않는다 — CMake 의 -DDEBUG_CONSOLE=y 가
@@ -72,6 +75,7 @@
 #define _USE_CLI_HW_LOG             1
 #define _USE_CLI_HW_KEYS            1
 #define _USE_CLI_HW_MODULE          1
+#define _USE_CLI_HW_BATTERY         1
 
 
 #endif
