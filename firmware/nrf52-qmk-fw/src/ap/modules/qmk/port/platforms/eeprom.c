@@ -38,6 +38,7 @@ void eeprom_init(void)
   {
     // 백엔드 미준비/읽기 실패 → 빈 EEPROM(0xFF). QMK 가 매직 불일치로 재초기화.
     memset(eeprom_buf, 0xFF, sizeof(eeprom_buf));
+    logPrintf("[E_] eeprom: backend %s -> blank\n", ee_ready ? "read fail" : "not ready");
   }
   dirty = false;
 }
@@ -54,7 +55,7 @@ static void eeprom_flush(void)
     uint32_t len = dirty_max - dirty_min + 1;
     if (eeprom_write(ee_dev, dirty_min, &eeprom_buf[dirty_min], len) != 0)
     {
-      logPrintf("emu-eeprom flush fail @%u len %u\n", dirty_min, len);
+      logPrintf("[E_] eeprom flush fail @%u len %u\n", dirty_min, len);
       return;   // 실패 시 dirty 유지 → 다음 task 에서 재시도
     }
   }
