@@ -358,6 +358,11 @@ uint8_t usbHidGetKbdLeds(void)
   return kb_led_state;
 }
 
+bool usbHidIsReady(void)
+{
+  return kb_ready;
+}
+
 // VIA 수신 콜백 등록 (port/via_hid.c 의 via_hid_receive).
 void usbHidSetViaReceiveFunc(void (*func)(uint8_t *data, uint8_t length))
 {
