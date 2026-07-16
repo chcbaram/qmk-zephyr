@@ -25,8 +25,7 @@ void apMain(void)
 
   ledOff(_DEF_LED1);   // 저전력: 기본 소등
 
-  qmkInit();
-  activityInit();
+  qmkInit();   // activity/via_port 초기화 포함
 
   while(1)
   {

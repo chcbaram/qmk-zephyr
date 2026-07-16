@@ -3,6 +3,8 @@
 #include "host.h"
 #include "eeprom.h"
 #include "via_hid.h"
+#include "via_port.h"
+#include "port/activity.h"
 #include "ble.h"
 #include "cli.h"
 #include "usb_hid/usb_hid.h"
@@ -61,6 +63,9 @@ bool qmkInit(void)
 
   keyboard_setup();
   keyboard_init();
+
+  activityInit();
+  viaPortInit();   // EEPROM 에 저장된 전력 설정을 activity 에 적용 (activityInit 뒤여야 한다)
 
   logPrintf("[OK] qmkInit()\n");
   logPrintf("     MATRIX %d x %d, DEBOUNCE %d\n", MATRIX_ROWS, MATRIX_COLS, DEBOUNCE);
