@@ -213,6 +213,11 @@
       "name": "BT Clr",
       "title": "현재 프로파일 본딩 삭제",
       "shortName": "BTx"
+    },
+    {
+      "name": "BT Clr All",
+      "title": "전 프로파일 본딩 삭제 + 1번으로",
+      "shortName": "BTxA"
     }
   ],
   "menus": [

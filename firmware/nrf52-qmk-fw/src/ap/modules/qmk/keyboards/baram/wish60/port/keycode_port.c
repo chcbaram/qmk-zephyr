@@ -20,6 +20,7 @@ enum
   KC_BT_NEXT,
   KC_BT_PREV,
   KC_BT_CLR,               // 현재 프로파일의 본딩 삭제
+  KC_BT_CLR_ALL,           // 전 프로파일 본딩 삭제 + 0 번으로
 };
 
 bool process_record_kb(uint16_t keycode, keyrecord_t *record)
@@ -45,7 +46,11 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record)
       return false;
 
     case KC_BT_CLR:
-      bleProfileClear(BLE_PROFILE_COUNT);   // COUNT = 활성 프로파일
+      bleProfileClearActive();
+      return false;
+
+    case KC_BT_CLR_ALL:
+      bleProfileClearAll();
       return false;
 
     default:

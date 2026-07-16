@@ -632,13 +632,18 @@ bool bleProfilePrev(void)
 
 bool bleProfileClear(uint8_t index)
 {
-  if (index >= BLE_PROFILE_COUNT)
+  if (index >= BLE_PROFILE_COUNT || bleProfileIsOpen(index))
   {
-    index = active_profile;
+    return false;   // 범위 밖이거나 이미 비어있음
   }
-  if (bleProfileIsOpen(index))
+
+  // 연결돼 있으면 먼저 끊는다. 안 그러면 본딩만 지워진 채 연결이 남아
+  // 호스트는 붙어 있다고 믿고 우리는 암호화 키가 없는 어긋난 상태가 된다.
+  struct bt_conn *conn = ble_profile_conn(index);
+  if (conn != NULL)
   {
-    return false;   // 이미 비어있음
+    bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+    bt_conn_unref(conn);
   }
 
   bt_unpair(BT_ID_DEFAULT, &profiles[index].peer);
@@ -647,6 +652,24 @@ bool bleProfileClear(uint8_t index)
 
   logPrintf("[  ] ble profile %d cleared\n", index);
   return true;
+}
+
+bool bleProfileClearActive(void)
+{
+  return bleProfileClear(active_profile);
+}
+
+void bleProfileClearAll(void)
+{
+  for (int i = 0; i < BLE_PROFILE_COUNT; i++)
+  {
+    bleProfileClear(i);
+  }
+
+  bleProfileSelect(0);        // ZMK 와 동일하게 0 번으로 되돌린다
+  ble_advertising_update();   // 0 번이 이미 활성이었으면 Select 가 no-op 이므로 여기서 한 번 더
+
+  logPrintf("[  ] ble all profiles cleared\n");
 }
 
 
@@ -687,7 +710,14 @@ void cliBle(cli_args_t *args)
 
   if (args->argc == 2 && args->isStr(0, "clear"))
   {
-    bleProfileClear(args->getData(1));
+    if (args->isStr(1, "all"))
+    {
+      bleProfileClearAll();
+    }
+    else
+    {
+      bleProfileClear(args->getData(1));
+    }
     ret = true;
   }
 
@@ -696,7 +726,7 @@ void cliBle(cli_args_t *args)
     cliPrintf("ble info\n");
     cliPrintf("ble sel   [0~%d]\n", BLE_PROFILE_COUNT - 1);
     cliPrintf("ble next\n");
-    cliPrintf("ble clear [0~%d]\n", BLE_PROFILE_COUNT - 1);
+    cliPrintf("ble clear [0~%d | all]\n", BLE_PROFILE_COUNT - 1);
   }
 }
 #endif
