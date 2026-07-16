@@ -226,6 +226,11 @@ static void msg_cb(struct usbd_context *const   usbd_ctx,
   }
 }
 
+bool usbIsVbusPresent(void)
+{
+  return nrf_power_usbregstatus_vbusdet_get(NRF_POWER);
+}
+
 bool usbInit(void)
 {
   struct usbd_context *p_usbd;
@@ -260,8 +265,10 @@ bool usbInit(void)
     // VBUS 감지형인데 부팅 시 이미 USB 가 연결(VBUS High)돼 있으면 VBUS_READY '엣지'
     // 이벤트가 오지 않아 enable 이 안 된다. 현재 VBUS 상태를 직접 읽어 즉시 enable.
     // (재플러그 없이 부팅 직후 열거되도록. 이후 hotplug 는 msg_cb 가 처리)
+    //
+    // 타이밍에 따라 msg_cb 의 VBUS_READY 가 먼저 enable 할 수 있다 → -EALREADY 는 정상.
     int ret = usbd_enable(p_usbd);
-    if (ret)
+    if (ret != 0 && ret != -EALREADY)
     {
       LOG_ERR("usbd_enable() at boot (%d)", ret);
     }

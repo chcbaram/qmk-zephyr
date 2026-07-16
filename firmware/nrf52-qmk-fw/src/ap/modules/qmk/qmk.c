@@ -5,6 +5,7 @@
 #include "ble.h"
 #include "cli.h"
 #include "usb_hid/usb_hid.h"
+#include "power.h"
 
 // 출력 드라이버 2종. 전환은 host_set_driver() 로만 이뤄진다(QMK 네이티브 outputselect).
 extern host_driver_t usb_driver;   // port/driver_usb.c
@@ -71,4 +72,6 @@ void qmkUpdate(void)
   keyboard_task();
   eeprom_task();
   output_select_task();
+  // TODO(Phase 6): powerConsoleUpdate() — 콘솔 UART 게이팅. 현재 구현은 suspend 시
+  // 1.6ms 주기 wakeup 이 새로 생겨 순손해라 비활성. port/power.c 주석 참고.
 }
