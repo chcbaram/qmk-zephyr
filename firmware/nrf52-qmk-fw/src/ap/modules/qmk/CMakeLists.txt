@@ -31,6 +31,10 @@ file(GLOB QMK_SRC_FILES CONFIGURE_DEPENDS
   ${QMK_ROOT_PATH}/port/*.c
   ${QMK_ROOT_PATH}/port/platforms/*.c
   ${QMK_ROOT_PATH}/port/protocol/*.c
+  ${QMK_ROOT_PATH}/port/via/*.c
+
+  # 보드별 port (VIA 채널 라우터 등). 보드마다 노출 채널이 달라 여기 둔다 — baram-qmk 와 동일.
+  ${QMK_KEYBOARD_PATH}/port/*.c
 
   ${QMK_ROOT_PATH}/quantum/quantum.c
   ${QMK_ROOT_PATH}/quantum/via.c
@@ -62,6 +66,7 @@ set(QMK_INC_DIR
   ${QMK_ROOT_PATH}/port
   ${QMK_ROOT_PATH}/port/platforms
   ${QMK_ROOT_PATH}/port/protocol
+  ${QMK_ROOT_PATH}/port/via
   ${QMK_ROOT_PATH}/quantum
   ${QMK_ROOT_PATH}/quantum/logging
   ${QMK_ROOT_PATH}/quantum/keymap_extras
@@ -71,6 +76,7 @@ set(QMK_INC_DIR
   ${QMK_ROOT_PATH}/quantum/rgblight
 
   ${QMK_KEYBOARD_PATH}
+  ${QMK_KEYBOARD_PATH}/port
 )
 
 add_compile_definitions(VIA_ENABLE)

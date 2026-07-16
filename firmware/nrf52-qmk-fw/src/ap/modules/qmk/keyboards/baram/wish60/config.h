@@ -9,17 +9,13 @@
 #define USB_PID                     0x5208
 
 
-// eeprom
-//   Phase 1: RAM 백업(port/platforms/eeprom.c 의 PORT_EEPROM_SIZE 와 일치).
-//   Phase 3: emu-eeprom(플래시 에뮬)로 영속화.
-#define EECONFIG_USER_DATA_SIZE     512
-// emu-eeprom(DTS eeprom0 size) 및 port/platforms/eeprom.c PORT_EEPROM_SIZE 와 일치
+// eeprom — emu-eeprom(DTS eeprom0 size) 및 port/platforms/eeprom.c PORT_EEPROM_SIZE 와 일치
 #define TOTAL_EEPROM_BYTE_COUNT     4096
 
-// VIA 커스텀 설정 영역(port/via_port.c 의 무선/전력 설정).
-// [주의] 이 값을 바꾸면 뒤따르는 dynamic keymap 시작 주소가 밀려 키맵이 초기화된다.
-// 지금 쓰는 건 4바이트지만 향후 TX power/디바운스까지 들어갈 자리를 미리 잡아 고정한다.
-#define VIA_EEPROM_CUSTOM_CONFIG_SIZE   16
+// 우리 설정(전력 타임아웃 등)을 담을 사용자 영역. baram-qmk/VENOM 과 동일하게 512B 고정.
+// 항목별 오프셋은 port/port.h 의 맵 참고. [주의] 이 크기를 바꾸면 키맵 주소가 밀린다 —
+// 그래서 넉넉히 한 번 잡고 그 안에서만 늘린다.
+#define EECONFIG_USER_DATA_SIZE     512
 
 #define DYNAMIC_KEYMAP_LAYER_COUNT  8
 

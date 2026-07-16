@@ -269,6 +269,57 @@
           ]
         }
       ]
+    },
+    {
+      "label": "SYSTEM",
+      "content": [
+        {
+          "label": "BOOT",
+          "content": [
+            {
+              "label": "Jump To BOOT",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_dfu",
+                9,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "label": "CLEAN",
+          "content": [
+            {
+              "label": "EEPROM Clean Confirm 1",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_reset_0",
+                9,
+                2
+              ]
+            },
+            {
+              "label": "EEPROM Clean Confirm 2",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_reset_1",
+                9,
+                3
+              ]
+            },
+            {
+              "label": "Are you sure ?",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_reset_done",
+                9,
+                4
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
