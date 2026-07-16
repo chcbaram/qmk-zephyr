@@ -160,6 +160,14 @@
   status = "okay";
 };
 
+// 배터리 잔량(VDDH). SAADC 내부 입력 VDDHDIV5 를 읽는다 — 외부 분압 저항 불필요.
+// 배터리가 VDDH 핀에 직결된 고전압 모드가 전제다(일반 모드면 레귤레이터 출력을 읽는다).
+// wish60 회로엔 i2c1 @0x36 에 MAX17048 도 있다 → 나중에 그 노드를 켜면 driver/battery.c 가
+// 자동으로 연료게이지 백엔드로 전환한다(Zephyr 네이티브 maxim,max17048).
+&adc {
+  status = "okay";
+};
+
 &uart0 {
   status = "okay";
   pinctrl-0 = <&uart0_default>;
