@@ -1,5 +1,6 @@
 #include "ble.h"
 #include "hw_def.h"
+#include "log.h"   // logPrintf (콘솔 비활성 빌드에선 no-op)
 
 #include <zephyr/kernel.h>
 #include <zephyr/settings/settings.h>

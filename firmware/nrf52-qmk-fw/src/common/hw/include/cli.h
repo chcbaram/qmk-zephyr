@@ -8,7 +8,13 @@ extern "C" {
 #include "hw_def.h"
 
 
+// CLI 자체가 꺼져 있으면(_USE_HW_CLI 미정의) cliAdd/cliPrintf 가 선언되지 않으므로
+// 개별 모듈의 CLI 코드도 함께 빠져야 한다. 그래야 _USE_CLI_HW_* 를 일일이 안 꺼도 된다.
+#ifdef _USE_HW_CLI
 #define CLI_USE(module)       (_USE_CLI_ ## module)
+#else
+#define CLI_USE(module)       0
+#endif
 
 #ifdef _USE_HW_CLI
 

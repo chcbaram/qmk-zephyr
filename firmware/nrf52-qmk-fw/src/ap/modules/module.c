@@ -11,7 +11,9 @@ typedef struct
 
 
 static bool moduleBegin(void);
+#if CLI_USE(HW_MODULE)
 static void cliModule(cli_args_t *args);
+#endif
 
 static module_info_t info;
 extern uint32_t _smodule;
@@ -33,7 +35,9 @@ bool moduleInit(void)
 
   ret = moduleBegin();
 
+#if CLI_USE(HW_MODULE)
   cliAdd("module", cliModule);
+#endif
   return ret;
 }
 
@@ -71,6 +75,7 @@ bool moduleBegin(void)
   return ret;
 }
 
+#if CLI_USE(HW_MODULE)
 void cliModule(cli_args_t *args)
 {
   bool ret = false;
@@ -98,3 +103,4 @@ void cliModule(cli_args_t *args)
 
   }
 }
+#endif

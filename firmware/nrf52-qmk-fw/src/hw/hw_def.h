@@ -27,6 +27,19 @@
 #define _USE_HW_LED
 #define      HW_LED_MAX_CH          1
 
+// [저전력] 디버그 콘솔(UART/CLI/로그).
+//
+// _USE_HW_DEBUG_CONSOLE 은 여기서 정의하지 않는다 — CMake 의 -DDEBUG_CONSOLE=y 가
+// 이 매크로와 debug.conf(CONFIG_SERIAL 등)를 함께 켠다. 여기서 손으로 켜면 C 코드만
+// 살아나고 Kconfig 는 안 따라와서 반쪽이 된다(반대도 마찬가지).
+//
+// 콘솔은 배터리 실사용 전류를 지배한다(실측, USB 미연결·BLE 연결 idle):
+//   콘솔 있음 1.13mA  vs  콘솔 없음 80.9µA  — 14배.
+//   nRF52840 UARTE 는 RX 활성 상태에서 HFCLK 를 계속 잡는다.
+// 런타임 게이팅(PM suspend)도 시도했으나 오히려 악화됐다(1.21→1.98mA). 빌드타임 제거가 답.
+
+#ifdef _USE_HW_DEBUG_CONSOLE
+
 #define _USE_HW_UART
 #define      HW_UART_MAX_CH         1
 #define      HW_UART_CH_SWD         _DEF_UART1
@@ -47,6 +60,8 @@
 #define      HW_LOG_BOOT_BUF_MAX    4096
 #define      HW_LOG_LIST_BUF_MAX    4096
 
+#endif
+
 
 
 
@@ -56,6 +71,7 @@
 #define _USE_CLI_HW_BUTTON          1
 #define _USE_CLI_HW_LOG             1
 #define _USE_CLI_HW_KEYS            1
+#define _USE_CLI_HW_MODULE          1
 
 
 #endif
