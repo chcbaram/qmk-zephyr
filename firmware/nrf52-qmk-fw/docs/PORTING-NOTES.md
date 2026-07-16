@@ -170,6 +170,16 @@ ZMK 와 동일하게 5대가 **동시에 연결된 채로** 있고, 리포트는
 전력은 연결된 호스트 수에 비례해 늘어난다(호스트마다 연결 이벤트가 따로 돈다) — 켜둔 호스트가
 많을수록 idle 이 올라간다. ZMK 도 동일한 트레이드오프다.
 
+**함정 1 — 재페어링이 `security err 4` 로 실패한다.**
+호스트에서 페어링을 지우고 다시 붙이면 키보드엔 **옛 본딩이 남아** 있다. Zephyr 의
+`update_keys_check()`(smp.c)는 기존 본딩을 덮어쓰는 걸 거부하고 `BT_SMP_ERR_AUTH_REQUIREMENTS`
+→ `security_changed(level 1, err 4)` 를 낸다. **`CONFIG_BT_SMP_ALLOW_UNAUTH_OVERWRITE=y` 필수**
+(ZMK 도 `app/Kconfig` 에서 `imply` 로 켠다). 이걸 빼먹어서 실기기에서 BLE 키 입력이 안 됐다.
+
+**함정 2 — 고아 본딩.** `bleProfileClearAll()` 이 `profiles[]` 만 돌면, 어느 프로파일에도 없는
+본딩(프로파일 도입 전에 맺힌 것 등)은 **영영 못 지운다**. 그 호스트는 재페어링 때마다 실패한다.
+→ `bt_unpair(BT_ID_DEFAULT, NULL)` 로 스택의 본딩을 통째로 지운다.
+
 **전환 키코드**: VIA `customKeycodes` → `QK_KB_0`(0x7E00)부터 순서대로 매핑.
 `keyboards/<kbd>/port/keycode_port.c` 가 `process_record_kb()`(weak) 를 오버라이드한다.
 **JSON 배열 순서와 C enum 순서가 반드시 일치**해야 한다(VIA 는 인덱스로만 지정).

@@ -661,15 +661,29 @@ bool bleProfileClearActive(void)
 
 void bleProfileClearAll(void)
 {
+  // 연결부터 끊는다(본딩만 지우면 호스트는 붙어 있다고 믿는 어긋난 상태가 된다).
   for (int i = 0; i < BLE_PROFILE_COUNT; i++)
   {
-    bleProfileClear(i);
+    struct bt_conn *conn = ble_profile_conn(i);
+
+    if (conn != NULL)
+    {
+      bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+      bt_conn_unref(conn);
+    }
+    bt_addr_le_copy(&profiles[i].peer, BT_ADDR_LE_ANY);
+    ble_profile_save(i);
   }
+
+  // **스택의 본딩을 통째로** 지운다(NULL = 전체). profiles[] 만 돌면 "고아 본딩"이 남는다 —
+  // 프로파일 도입 전에 맺힌 본딩이나 슬롯이 초기화된 뒤 남은 본딩은 어느 프로파일에도 없어서
+  // 영영 못 지우고, 그 호스트는 재페어링 때마다 실패한다(실제로 겪음).
+  bt_unpair(BT_ID_DEFAULT, NULL);
 
   bleProfileSelect(0);        // ZMK 와 동일하게 0 번으로 되돌린다
   ble_advertising_update();   // 0 번이 이미 활성이었으면 Select 가 no-op 이므로 여기서 한 번 더
 
-  logPrintf("[  ] ble all profiles cleared\n");
+  logPrintf("[  ] ble all bonds cleared\n");
 }
 
 
