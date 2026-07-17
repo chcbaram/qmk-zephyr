@@ -1,15 +1,15 @@
 {
     "manufacturer": "baram",
-    "keyboard_name": "wish60",
+    "keyboard_name": "wish65",
     "maintainer": "chcbaram",
     "usb": {
         "vid": "0x0483",
-        "pid": "0x5208",
+        "pid": "0x5209",
         "device_version": "1.0.0"
     },
     "matrix_size": {
         "rows": 5,
-        "cols": 15
+        "cols": 16
     },
     "dynamic_keymap": {
         "layer_count": 8
