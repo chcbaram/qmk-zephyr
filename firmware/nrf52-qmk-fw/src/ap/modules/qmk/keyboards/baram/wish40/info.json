@@ -1,0 +1,17 @@
+{
+    "manufacturer": "baram",
+    "keyboard_name": "wish40",
+    "maintainer": "chcbaram",
+    "usb": {
+        "vid": "0x0483",
+        "pid": "0x520A",
+        "device_version": "1.0.0"
+    },
+    "matrix_size": {
+        "rows": 4,
+        "cols": 12
+    },
+    "dynamic_keymap": {
+        "layer_count": 8
+    }
+}

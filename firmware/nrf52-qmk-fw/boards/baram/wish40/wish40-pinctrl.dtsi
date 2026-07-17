@@ -1,0 +1,39 @@
+&pinctrl {
+  /*
+   * **UART 없음.** 이 보드엔 디버그 UART 배선이 없다(회로도 확인 — H2 는 SWD 만).
+   * 따라서 `./build.sh wish40 -d`(콘솔 빌드)를 쓸 수 없다. 필요해지면 SWD 로 RTT 콘솔을
+   * 붙이는 방법이 있다(CONFIG_RTT_CONSOLE) — 아직 안 해봤다.
+   */
+
+  /* ws2812(네오픽셀) — SPIM MOSI 만 쓴다. wish40 회로: P0.26 (TXB0101 레벨시프터 경유) */
+  spi3_default: spi3_default {
+    group1 {
+      psels = <NRF_PSEL(SPIM_MOSI, 0, 26)>;
+    };
+  };
+
+  spi3_sleep: spi3_sleep {
+    group1 {
+      psels = <NRF_PSEL(SPIM_MOSI, 0, 26)>;
+      low-power-enable;
+    };
+  };
+
+  /* MAX17048 연료게이지 — SDA P0.28 / SCL P0.29 */
+  i2c1_default: i2c1_default {
+    group1 {
+      psels = <NRF_PSEL(TWIM_SDA, 0, 28)>,
+              <NRF_PSEL(TWIM_SCL, 0, 29)>;
+      bias-pull-up;
+    };
+  };
+
+  i2c1_sleep: i2c1_sleep {
+    group1 {
+      psels = <NRF_PSEL(TWIM_SDA, 0, 28)>,
+              <NRF_PSEL(TWIM_SCL, 0, 29)>;
+      low-power-enable;
+      bias-pull-up;
+    };
+  };
+};

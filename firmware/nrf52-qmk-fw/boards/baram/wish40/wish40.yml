@@ -1,0 +1,10 @@
+identifier: wish40/nrf52840
+name: wish40
+vendor: baram
+type: mcu
+arch: arm
+ram: 256
+flash: 1024
+toolchain:
+  - zephyr
+supported: []

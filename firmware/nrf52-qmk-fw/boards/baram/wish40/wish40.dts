@@ -1,0 +1,250 @@
+/dts-v1/;
+#include <nordic/nrf52840_qiaa.dtsi>
+#include "wish40-pinctrl.dtsi"
+#include <zephyr/dt-bindings/dt-util.h>      // BIT()
+#include <zephyr/dt-bindings/led/led.h>      // LED_COLOR_ID_* (ws2812 color-mapping)
+
+/*
+ * wish40 — 40% 배열(42키), nRF52840 (E73-2G4M08S1C 모듈).
+ *
+ * 다른 보드와의 차이:
+ *  - **MAX17048 연료게이지**(i2c1 @0x36). wish60/wish65 는 VDDH ADC 다 — 이 보드가 처음이다.
+ *    driver/battery.c 가 DT 로 백엔드를 자동 선택한다(§6.3).
+ *  - **네오픽셀 42개**(wish60 16 / wish65 18). 그래서 밝기 상한을 낮췄다 — config.h 참고.
+ *  - **Caps LED 가 없다**. 디버그 LED(P0.04)만 있다 -> caps_led 노드 없음 = led_port.c 컴파일아웃.
+ *  - **디버그 UART 가 없다**(회로도 확인 — H2 는 SWD 만). 콘솔 빌드(-d)를 쓸 수 없다.
+ *  - 매트릭스는 wish60 과 같은 **row2col** 이다 -> MATRIX_DRIVE_IS_QMK_COL 불필요.
+ */
+
+/ {
+	model = "wish40";
+	compatible = "baram,wish40";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &code_partition;
+		/* zephyr,console 없음 — 이 보드엔 UART 가 없다(위 참고) */
+	};
+
+	/*
+	 * 디버그용 LED (P0.04). 하트비트 등 개발 편의 — hw/driver/led.c. 키보드 기능과 무관.
+	 * 기판의 LED2/LED3 는 충전기(TP4054) CHRG 표시라 MCU 가 구동하지 않는다.
+	 *
+	 * **Caps LED 는 없다**(회로도 확인) -> caps_led 노드를 두지 않는다. 그러면 hw_def.h 의
+	 * DT_NODE_EXISTS 와 port/led_port.c 의 가드가 알아서 빠진다. 공통 코드는 손댈 게 없다(§4.1.2).
+	 */
+	leds {
+		compatible = "gpio-leds";
+		led: led_0 {
+			gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+			label = "LED";
+		};
+	};
+
+	usb_hid_kbd: hid_kbd {
+		compatible = "zephyr,hid-device";
+		label = "HID_KBD";
+		protocol-code = "keyboard";
+		in-report-size = <64>;
+		in-polling-period-us = <1000>;
+	};
+
+	usb_hid_via: hid_via {
+		compatible = "zephyr,hid-device";
+		label = "HID_VIA";
+		protocol-code = "none";
+		in-report-size = <32>;
+		out-report-size = <32>;
+		in-polling-period-us = <1000>;
+		out-polling-period-us = <1000>;
+	};
+
+	usb_hid_exk: hid_exk {
+		compatible = "zephyr,hid-device";
+		label = "HID_EXK";
+		protocol-code = "none";
+		in-report-size = <64>;
+		in-polling-period-us = <1000>;
+	};
+
+	/*
+	 * 네오픽셀 전원 레일 (P0.30). 이 레일은 네오픽셀(VDD_OUT)만 끊는다 — 회로도 확인.
+	 * regulator-boot-on 없음 = 부팅 시 꺼진 상태. RGB 를 켤 때만 올린다.
+	 */
+	ext_power: ext-power {
+		compatible = "regulator-fixed";
+		regulator-name = "ext-power";
+		enable-gpios = <&gpio0 30 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <1000>;
+	};
+
+	/*
+	 * 키 매트릭스 — Zephyr 네이티브 gpio-kbd-matrix.
+	 *
+	 * [주의] Zephyr 명명은 QMK 와 반대다: row-gpios = **입력**, col-gpios = **구동 출력**.
+	 * wish40 은 row2col(= wish60 과 같다) 이라 역매핑한다:
+	 *   Zephyr row-gpios = 입력 12개 = **QMK col**   (ZMK 정의의 col-gpios, PULL_DOWN 이 붙은 쪽)
+	 *   Zephyr col-gpios = 구동  4개 = **QMK row**   (ZMK 정의의 row-gpios)
+	 * 배경은 docs/PORTING-NOTES.md §2.4 / §4.1.1.
+	 */
+	kbd_matrix: kbd-matrix {
+		compatible = "gpio-kbd-matrix";
+
+		row-gpios = <&gpio0  6 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* wish40 col0  */
+		            <&gpio0  7 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col1  */
+		            <&gpio0  8 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col2  */
+		            <&gpio0 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col3  */
+		            <&gpio0 31 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col4  */
+		            <&gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col5  */
+		            <&gpio1 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col6  */
+		            <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col7  */
+		            <&gpio0 24 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col8  */
+		            <&gpio1  6 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col9  */
+		            <&gpio1  4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>,   /* col10 */
+		            <&gpio1  2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;   /* col11 */
+
+		col-gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>,                      /* wish40 row0 */
+		            <&gpio0 15 GPIO_ACTIVE_HIGH>,                      /* row1 */
+		            <&gpio0 17 GPIO_ACTIVE_HIGH>,                      /* row2 */
+		            <&gpio0 20 GPIO_ACTIVE_HIGH>;                      /* row3 */
+
+		idle-mode = "interrupt";   /* 키 없을 때 인터럽트 대기 → CPU sleep */
+		wakeup-source;
+		no-ghostkey-check;         /* 다이오드(row2col) 있으므로 고스팅 검사 불필요 */
+
+		poll-period-ms   = <2>;    /* 구동이 GPIO 라 wish60 과 같다(595 가 아니다) */
+		debounce-down-ms = <0>;    /* 디바운스는 QMK 가 담당 (이중 디바운스 방지) */
+		debounce-up-ms   = <0>;
+	};
+};
+
+&flash0 {
+	/*
+	 * wish60 과 같은 단일슬롯 레이아웃(둘 다 nRF52840 1MB). UF2 부트로더 전제.
+	 * 반드시 --no-sysbuild 로 빌드할 것. §2.2/§2.3.
+	 */
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		sd_partition: partition@0 {
+			reg = <0x00000000 0x00001000>;
+		};
+
+		code_partition: partition@1000 {
+			reg = <0x00001000 0x000d3000>;
+		};
+
+		/* QMK 키맵 영속화용 emu-eeprom 백엔드 (32KB) */
+		eeprom_partition: partition@d4000 {
+			label = "eeprom";
+			reg = <0x000d4000 0x00008000>;
+		};
+
+		/* NVS/settings (BLE bond 등) */
+		storage_partition: partition@dc000 {
+			label = "storage";
+			reg = <0x000dc000 0x00018000>;
+		};
+
+		boot_partition: partition@f4000 {
+			reg = <0x000f4000 0x0000c000>;
+		};
+	};
+};
+
+/ {
+	/* QMK dynamic_keymap 저장소. size 는 config.h 의 TOTAL_EEPROM_BYTE_COUNT 와 일치시킬 것. */
+	eeprom0: eeprom {
+		compatible = "zephyr,emu-eeprom";
+		size = <4096>;
+		pagesize = <0x2000>;
+		partition = <&eeprom_partition>;
+		rambuf;
+		partition-erase;
+	};
+};
+
+/*
+ * sense-edge-mask — row-gpios(입력) 핀을 그대로 BIT() 로 나열한다. 빠지면 빌드 에러
+ * (port/matrix.c 의 BUILD_ASSERT). deep sleep(System OFF)에서 GPIOTE 가 꺼지므로
+ * DETECT/SENSE 로만 깨어날 수 있다. §3.5 참고.
+ */
+&gpio0 {
+	status = "okay";
+	sense-edge-mask = <(BIT(6) | BIT(7) | BIT(8) | BIT(12) | BIT(24) | BIT(31))>;
+};
+
+&gpio1 {
+	status = "okay";
+	sense-edge-mask = <(BIT(2) | BIT(4) | BIT(6) | BIT(10) | BIT(11) | BIT(13))>;
+};
+
+&gpiote {
+	status = "okay";
+};
+
+/* MAX17048 이 있으므로 VDDH ADC 는 안 쓴다. adc 노드는 켜두되 battery.c 가 알아서 고른다(§6.3). */
+&adc {
+	status = "okay";
+};
+
+/*
+ * 배터리 연료게이지 — **이 보드만 MAX17048 을 쓴다**(wish60/wish65 는 VDDH ADC).
+ *
+ * ZMK 는 자체 드라이버(zmk,maxim-max17048)를 쓰지만 우리는 **Zephyr 네이티브**를 쓴다
+ * (drivers/fuel_gauge/max17048). 이식 코드 0 — kbd-matrix / ws2812 / regulator-fixed 와 같은 판단.
+ * compatible 이 다르다: zmk,maxim-max17048 (X) -> maxim,max17048 (O)
+ *
+ * driver/battery.c 가 DT_HAS_COMPAT_STATUS_OKAY(maxim_max17048) 로 백엔드를 자동 선택한다.
+ * Kconfig(CONFIG_FUEL_GAUGE / CONFIG_MAX17048 / CONFIG_I2C)는 보드 defconfig 에 있다.
+ */
+&i2c1 {
+	status = "okay";
+	compatible = "nordic,nrf-twi";
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-1 = <&i2c1_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	fuel_gauge: max17048@36 {
+		compatible = "maxim,max17048";
+		status = "okay";
+		reg = <0x36>;
+	};
+};
+
+/*
+ * 네오픽셀 — Zephyr 네이티브 worldsemi,ws2812-spi. 전원은 위 ext_power 레일이 공급한다.
+ * MOSI 는 TXB0101 레벨시프터를 거쳐 VDD_OUT 도메인으로 나간다(회로도).
+ */
+&spi3 {
+	compatible = "nordic,nrf-spim";
+	status = "okay";
+
+	pinctrl-0 = <&spi3_default>;
+	pinctrl-1 = <&spi3_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	led_strip: ws2812@0 {
+		compatible = "worldsemi,ws2812-spi";
+		reg = <0>;
+		spi-max-frequency = <4000000>;
+
+		chain-length = <42>;        /* wish40 LED 개수 (SK6812MINI-E) */
+		spi-one-frame = <0x70>;
+		spi-zero-frame = <0x40>;
+		color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
+	};
+};
+
+zephyr_udc0: &usbd {
+	compatible = "nordic,nrf-usbd";
+	status = "okay";
+	num-bidir-endpoints = <0>;
+	num-in-endpoints = <7>;
+	num-out-endpoints = <2>;
+	num-isoin-endpoints = <0>;
+	num-isoout-endpoints = <0>;
+};

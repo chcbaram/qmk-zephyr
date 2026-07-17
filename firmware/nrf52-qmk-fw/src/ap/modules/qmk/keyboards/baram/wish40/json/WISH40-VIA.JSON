@@ -1,0 +1,620 @@
+{
+  "name": "wish40",
+  "vendorId": "0x0483",
+  "productId": "0x520A",
+  "matrix": {
+    "rows": 4,
+    "cols": 12
+  },
+  "layouts": {
+    "keymap": [
+      [
+        {
+          "c": "#777777"
+        },
+        "0,0",
+        {
+          "c": "#cccccc"
+        },
+        "0,1",
+        "0,2",
+        "0,3",
+        "0,4",
+        "0,5",
+        "0,6",
+        "0,7",
+        "0,8",
+        "0,9",
+        "0,10",
+        {
+          "c": "#aaaaaa"
+        },
+        "0,11"
+      ],
+      [
+        {
+          "w": 1.25
+        },
+        "1,0",
+        {
+          "c": "#cccccc"
+        },
+        "1,1",
+        "1,2",
+        "1,3",
+        "1,4",
+        "1,5",
+        "1,6",
+        "1,7",
+        "1,8",
+        "1,9",
+        {
+          "c": "#aaaaaa",
+          "w": 1.75
+        },
+        "1,10"
+      ],
+      [
+        {
+          "w": 1.75
+        },
+        "2,0",
+        {
+          "c": "#cccccc"
+        },
+        "2,2",
+        "2,3",
+        "2,4",
+        "2,5",
+        "2,6",
+        "2,7",
+        "2,8",
+        "2,9",
+        {
+          "c": "#aaaaaa",
+          "w": 1.25
+        },
+        "2,10",
+        "2,11"
+      ],
+      [
+        {
+          "w": 1.25
+        },
+        "3,0",
+        "3,2",
+        {
+          "w": 1.25
+        },
+        "3,3",
+        {
+          "c": "#cccccc",
+          "w": 2.75
+        },
+        "3,5",
+        {
+          "w": 2.25
+        },
+        "3,7",
+        {
+          "c": "#aaaaaa",
+          "w": 1.25
+        },
+        "3,9",
+        "3,10",
+        {
+          "w": 1.25
+        },
+        "3,11"
+      ]
+    ]
+  },
+  "customKeycodes": [
+    {
+      "name": "BT 1",
+      "title": "BLE 프로파일 1 선택",
+      "shortName": "BT1"
+    },
+    {
+      "name": "BT 2",
+      "title": "BLE 프로파일 2 선택",
+      "shortName": "BT2"
+    },
+    {
+      "name": "BT 3",
+      "title": "BLE 프로파일 3 선택",
+      "shortName": "BT3"
+    },
+    {
+      "name": "BT 4",
+      "title": "BLE 프로파일 4 선택",
+      "shortName": "BT4"
+    },
+    {
+      "name": "BT 5",
+      "title": "BLE 프로파일 5 선택",
+      "shortName": "BT5"
+    },
+    {
+      "name": "BT Next",
+      "title": "다음 프로파일",
+      "shortName": "BT>"
+    },
+    {
+      "name": "BT Prev",
+      "title": "이전 프로파일",
+      "shortName": "BT<"
+    },
+    {
+      "name": "BT Clr",
+      "title": "현재 프로파일 본딩 삭제",
+      "shortName": "BTx"
+    },
+    {
+      "name": "BT Clr All",
+      "title": "전 프로파일 본딩 삭제 + 1번으로",
+      "shortName": "BTxA"
+    }
+  ],
+  "keycodes": [
+    "qmk_lighting"
+  ],
+  "menus": [
+    {
+      "label": "Lighting",
+      "content": [
+        {
+          "label": "Underglow",
+          "content": [
+            {
+              "label": "Brightness",
+              "type": "range",
+              "options": [
+                0,
+                255
+              ],
+              "content": [
+                "id_qmk_rgb_matrix_brightness",
+                3,
+                1
+              ]
+            },
+            {
+              "label": "Effect",
+              "type": "dropdown",
+              "content": [
+                "id_qmk_rgb_matrix_effect",
+                3,
+                2
+              ],
+              "options": [
+                "All Off",
+                "Solid Color",
+                "Gradient Up/Down",
+                "Gradient Left/Right",
+                "Breathing",
+                "Band Val.",
+                "Pinwheel Val.",
+                "Spiral Val.",
+                "Cycle All",
+                "Cycle Left/Right",
+                "Cycle Up/Down",
+                "Rainbow Moving Chevron",
+                "Cycle Out/In",
+                "Cycle Out/In Dual",
+                "Cycle Pinwheel",
+                "Cycle Spiral",
+                "Rainbow Beacon",
+                "Rainbow Pinwheels",
+                "Pixel Flow"
+              ]
+            },
+            {
+              "showIf": "{id_qmk_rgb_matrix_effect} != 0",
+              "label": "Effect Speed",
+              "type": "range",
+              "options": [
+                0,
+                255
+              ],
+              "content": [
+                "id_qmk_rgb_matrix_effect_speed",
+                3,
+                3
+              ]
+            },
+            {
+              "showIf": "{id_qmk_rgb_matrix_effect} == 1",
+              "label": "Color",
+              "type": "color",
+              "content": [
+                "id_qmk_rgb_matrix_color",
+                3,
+                4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "FEATURE",
+      "content": [
+        {
+          "label": "PROFILE",
+          "content": [
+            {
+              "label": "Active Profile",
+              "type": "dropdown",
+              "options": [
+                [
+                  "Profile 1",
+                  0
+                ],
+                [
+                  "Profile 2",
+                  1
+                ],
+                [
+                  "Profile 3",
+                  2
+                ],
+                [
+                  "Profile 4",
+                  3
+                ],
+                [
+                  "Profile 5",
+                  4
+                ]
+              ],
+              "content": [
+                "id_ble_profile",
+                16,
+                1
+              ]
+            },
+            {
+              "label": "Profile 1 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_0",
+                16,
+                2
+              ]
+            },
+            {
+              "label": "Profile 2 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_1",
+                16,
+                3
+              ]
+            },
+            {
+              "label": "Profile 3 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_2",
+                16,
+                4
+              ]
+            },
+            {
+              "label": "Profile 4 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_3",
+                16,
+                5
+              ]
+            },
+            {
+              "label": "Profile 5 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_4",
+                16,
+                6
+              ]
+            },
+            {
+              "label": "Clear All Bonds",
+              "type": "button",
+              "options": [
+                1
+              ],
+              "content": [
+                "id_ble_clear_all",
+                16,
+                7
+              ]
+            }
+          ]
+        },
+        {
+          "label": "POWER",
+          "content": [
+            {
+              "label": "Idle Timeout",
+              "type": "dropdown",
+              "options": [
+                [
+                  "Off",
+                  0
+                ],
+                [
+                  "5 sec",
+                  5
+                ],
+                [
+                  "10 sec",
+                  10
+                ],
+                [
+                  "15 sec",
+                  15
+                ],
+                [
+                  "30 sec",
+                  30
+                ],
+                [
+                  "1 min",
+                  60
+                ],
+                [
+                  "2 min",
+                  120
+                ],
+                [
+                  "4 min",
+                  240
+                ]
+              ],
+              "content": [
+                "id_power_idle_timeout",
+                15,
+                1
+              ]
+            },
+            {
+              "label": "Deep Sleep Timeout",
+              "type": "dropdown",
+              "options": [
+                [
+                  "Off",
+                  0
+                ],
+                [
+                  "1 min",
+                  1
+                ],
+                [
+                  "5 min",
+                  5
+                ],
+                [
+                  "10 min",
+                  10
+                ],
+                [
+                  "30 min",
+                  30
+                ],
+                [
+                  "1 hour",
+                  60
+                ],
+                [
+                  "2 hours",
+                  120
+                ],
+                [
+                  "4 hours",
+                  240
+                ]
+              ],
+              "content": [
+                "id_power_sleep_timeout",
+                15,
+                2
+              ]
+            },
+            {
+              "label": "RGB Timeout",
+              "type": "dropdown",
+              "options": [
+                [
+                  "Off",
+                  0
+                ],
+                [
+                  "1 min",
+                  1
+                ],
+                [
+                  "2 min",
+                  2
+                ],
+                [
+                  "5 min",
+                  5
+                ],
+                [
+                  "10 min",
+                  10
+                ],
+                [
+                  "30 min",
+                  30
+                ],
+                [
+                  "1 hour",
+                  60
+                ]
+              ],
+              "content": [
+                "id_qmk_power_rgb_timeout",
+                15,
+                3
+              ]
+            },
+            {
+              "label": "TX Power",
+              "type": "dropdown",
+              "options": [
+                [
+                  "-40 dBm",
+                  0
+                ],
+                [
+                  "-20 dBm",
+                  1
+                ],
+                [
+                  "-12 dBm",
+                  2
+                ],
+                [
+                  "-8 dBm",
+                  3
+                ],
+                [
+                  "-4 dBm",
+                  4
+                ],
+                [
+                  "0 dBm",
+                  5
+                ],
+                [
+                  "+4 dBm",
+                  6
+                ],
+                [
+                  "+8 dBm",
+                  7
+                ]
+              ],
+              "content": [
+                "id_ble_tx_power",
+                16,
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "label": "QMK",
+          "content": [
+            {
+              "label": "Debounce Time",
+              "type": "dropdown",
+              "options": [
+                [
+                  "5 ms",
+                  5
+                ],
+                [
+                  "10 ms",
+                  10
+                ],
+                [
+                  "15 ms",
+                  15
+                ],
+                [
+                  "20 ms",
+                  20
+                ],
+                [
+                  "25 ms",
+                  25
+                ],
+                [
+                  "30 ms",
+                  30
+                ],
+                [
+                  "35 ms",
+                  35
+                ],
+                [
+                  "40 ms",
+                  40
+                ]
+              ],
+              "content": [
+                "id_qmk_debounce_time",
+                17,
+                1
+              ]
+            },
+            {
+              "label": "Hold On Other Key Press",
+              "type": "toggle",
+              "content": [
+                "id_qmk_hold_okp",
+                18,
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "SYSTEM",
+      "content": [
+        {
+          "label": "BOOT",
+          "content": [
+            {
+              "label": "Jump To BOOT",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_dfu",
+                9,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "label": "CLEAN",
+          "content": [
+            {
+              "label": "EEPROM Clean Confirm 1",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_reset_0",
+                9,
+                2
+              ]
+            },
+            {
+              "label": "EEPROM Clean Confirm 2",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_reset_1",
+                9,
+                3
+              ]
+            },
+            {
+              "label": "Are you sure ?",
+              "type": "toggle",
+              "content": [
+                "id_qmk_system_reset_done",
+                9,
+                4
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+CONFIG_ARM_MPU=y
+CONFIG_HW_STACK_PROTECTION=y
+
+# 전력 — 기본값은 조용히 바뀔 수 있고 무선 키보드에선 전류를 좌우하므로 보드에서 못 박는다.
+# 외부 32.768kHz 크리스탈(LFXO) 실장 확인됨 — 회로도의 X1(XL1/XL2, 부하 12pF).
+CONFIG_CLOCK_CONTROL_NRF_K32SRC_XTAL=y
+CONFIG_CLOCK_CONTROL_NRF_K32SRC_50PPM=y
+
+# DCDC 레귤레이터: LDO 대비 전류 크게 절감.
+CONFIG_BOARD_ENABLE_DCDC=y
+
+# 배터리 잔량 — **MAX17048 연료게이지**(i2c1 @0x36). VDDH ADC 를 쓰는 wish60/wish65 와 다르다.
+# driver/battery.c 가 DT_HAS_COMPAT_STATUS_OKAY(maxim_max17048) 로 백엔드를 자동 선택한다.
+CONFIG_I2C=y
+CONFIG_FUEL_GAUGE=y
+CONFIG_MAX17048=y
+
+# BLE Device Information Service — **보드마다 다른 값**(prj.conf 는 공유라 여기 둔다).
+# 키보드 config.h 의 KBD_NAME / USB_PID 와 반드시 일치할 것 — port/ble.c 의 BUILD_ASSERT 가 잡는다.
+CONFIG_BT_DIS_MODEL_NUMBER=y
+CONFIG_BT_DIS_MODEL_NUMBER_STR="WISH40"
+CONFIG_BT_DIS_PNP_PID=0x520A
