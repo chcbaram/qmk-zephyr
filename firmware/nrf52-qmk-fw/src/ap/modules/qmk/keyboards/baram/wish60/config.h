@@ -32,6 +32,9 @@
 
 // 언더글로우 — DTS led_strip 의 chain-length / HW_WS2812_MAX_CH 와 반드시 일치.
 #define RGB_MATRIX_LED_COUNT        16
+// 기본값은 (COUNT+4)/5 = 4개씩 나눠 렌더 → 한 프레임에 task 호출이 7번 필요하다.
+// 16개는 한 번에 렌더해도 싸므로 호출 수를 줄여 프레임을 빨리 완성시킨다(끊김 방지).
+#define RGB_MATRIX_LED_PROCESS_LIMIT RGB_MATRIX_LED_COUNT
 // 밝기 상한 — **보드가 정하는 전력 예산**이다(그래서 QMK 가 이걸 키보드 config.h 에 뒀다).
 // VIA 는 0~255 를 scale8(v, MAXIMUM_BRIGHTNESS) 로 스케일하므로 슬라이더는 항상
 // "이 보드가 허용하는 범위의 0~100%" 를 뜻한다. 낮춰도 정상 동작이다.

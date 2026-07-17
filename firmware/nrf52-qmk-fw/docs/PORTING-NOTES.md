@@ -637,8 +637,15 @@ SPI 하나 잡으려고 켰다가 **키가 아예 안 먹었다.** `input_kbd_ma
 `ap.c` 는 idle 이면 `qmkWaitActivity()` 에서 무한 블록한다(§2.6). RGB 는 주기적으로 프레임을
 그려야 하므로 그대로 두면 패턴의 첫 프레임만 나오고 정지한다. **§2.6 의 "QMK 폴링 vs ZMK 이벤트"
 가 RGB 에서 다시 나타나는 지점.**
-→ `qmkGetIdleWaitMs()` 가 RGB 가 켜져 있으면 `RGB_MATRIX_LED_FLUSH_LIMIT`(16ms ≈ 60fps)로
-   대기를 자른다. RGB 자체가 mA 단위라 60fps 웨이크업은 무시할 만하다.
+→ `qmkGetIdleWaitMs()` 가 RGB 가 켜져 있으면 **task 주기(`QMK_TASK_PERIOD_MS`)**로 대기를 자른다.
+
+> **`RGB_MATRIX_LED_FLUSH_LIMIT`(16ms)를 쓰면 안 된다** — 처음에 그렇게 했다가 브리딩이 뚝뚝
+> 끊겼다. 그건 **프레임 주기**지 task 주기가 아니다. `rgb_matrix_task()` 는 상태머신이고
+> RENDERING 이 `RGB_MATRIX_LED_PROCESS_LIMIT`(기본 (COUNT+4)/5 = 4)개씩 청크로 돈다 →
+> 한 프레임에 **7번쯤** 불려야 한다. 16ms 로 깨우면 프레임당 ~112ms = **약 9fps**.
+> 프레임 주기 제한은 `rgb_task_sync()` 가 알아서 건다.
+> 추가로 `RGB_MATRIX_LED_PROCESS_LIMIT = LED_COUNT` 로 두면 호출 수가 7 → 4 로 준다(16개는 싸다).
+> 전력: RGB 자체가 10mA 단위라 이 웨이크업 비용은 묻히고, RGB 를 끄면 원래대로 돌아간다.
 
 **USB 서스펜드**: 호스트가 자면 `USBD_MSG_SUSPEND` → `suspend_power_down_quantum()` →
 `rgb_matrix_set_suspend_state(true)` → 소등 + flush → 레일 down. usbd_next 메시지가 그동안
