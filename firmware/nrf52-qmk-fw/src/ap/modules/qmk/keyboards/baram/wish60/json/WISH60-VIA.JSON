@@ -221,6 +221,7 @@
     }
   ],
   "menus": [
+    "qmk_rgb_matrix",
     {
       "label": "FEATURE",
       "content": [
