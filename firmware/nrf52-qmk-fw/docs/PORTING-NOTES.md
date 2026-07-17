@@ -975,6 +975,18 @@ void rgb_matrix_set_suspend_state(bool state) {
 그래서 `qmkIsSuspended()`(우리 arbiter 플래그)를 쓴다. `qmkSuspendUpdate()` 가
 `suspend_power_down_quantum()` **전에** 플래그를 세우는 것이 그 계약이다 — 순서를 바꾸지 말 것.
 
+**함정 5 — 서스펜드 상태를 바꾸는 쪽은 반드시 `qmkWake()` 해야 한다.** 함정 3 을 고치면서
+생긴 부작용이다: 서스펜드에 들어가면 RGB 의 2ms 웨이크가 사라지므로 루프는 activity
+데드라인(30초)까지 잔다. 그때 **RESUME 이 와도 깨우지 않으면 RGB 가 꺼진 채 남는다** —
+아무 키나 눌러야 돌아온다.
+
+배터리 + RGB 켠 상태에서 **USB 를 꽂으면 재현된다**(실제로 겪음). USB 를 꽂으면 usbd 는
+**SUSPEND 를 먼저** 보내고(호스트가 버스를 잡기 전이라 idle) 버스 리셋 뒤 RESUME 한다 —
+즉 이 경로는 "PC 가 잘 때"만이 아니라 **연결할 때마다** 지나간다.
+
+LED 리포트에는 같은 이유로 이미 `qmkWake()` 를 붙여놨는데(`usbHidSetKbdLedFunc(qmkWake)`,
+`ble.c` 의 `led_outp_rep_handler`) 정작 서스펜드 콜백엔 빠져 있었다. §2.6 계열의 반복이다.
+
 **순서**: `qmkUpdate()` 에서 `qmkSuspendUpdate()` 는 `output_select_task()` **뒤**여야 한다.
 `suspend_wakeup_init_quantum()` → `led_wakeup()` → `led_set(host_keyboard_leds())` 가 활성
 host_driver 를 타기 때문이다.
