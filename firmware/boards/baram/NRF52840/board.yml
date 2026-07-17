@@ -1,5 +1,0 @@
-board:
-  name: NRF52840
-  vendor: baram
-  socs:
-    - name: nrf52840
