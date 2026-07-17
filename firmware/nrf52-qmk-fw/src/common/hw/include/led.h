@@ -12,6 +12,8 @@ extern "C" {
 
 
 bool ledInit(void);
+// 슬립 진입 전 소등 + 핀을 기본 상태로(누설 방지). port/activity.c 에서 호출.
+bool ledToSleep(void);
 void ledOn(uint8_t ch);
 void ledOff(uint8_t ch);
 void ledToggle(uint8_t ch);

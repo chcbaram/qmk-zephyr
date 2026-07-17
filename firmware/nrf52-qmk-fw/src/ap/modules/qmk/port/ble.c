@@ -73,6 +73,50 @@ typedef struct
 static ble_profile_t profiles[BLE_PROFILE_COUNT];
 static uint8_t       active_profile = 0;
 
+/*
+ * 재연결 루프 감지 — 로그 스팸 방지.
+ *
+ * 호스트에만 본딩이 남으면 그 호스트가 "연결 -> 암호화 실패 -> 0x13 로 끊김"을 무한 반복한다
+ * (호스트 본딩은 우리가 못 지운다). 그대로 두면 로그가 끝없이 찍혀 콘솔을 못 쓴다.
+ * 같은 주소가 짧은 간격으로 반복 해제되면 **로그를 끄고 카운트만 센다** — 상태는 `ble info` 로 본다.
+ * 로그만 억제한다. 연결 동작 자체는 건드리지 않는다(정상 재연결을 막으면 안 되므로).
+ */
+#define BLE_LOOP_WINDOW_MS    3000   // 이 안에 다시 끊기면 "반복"으로 본다
+#define BLE_LOOP_MUTE_AFTER   3      // 연속 3회부터 로그 억제
+
+static bt_addr_le_t loop_addr;
+static uint32_t     loop_cnt;
+static uint32_t     loop_last_ms;
+
+static bool ble_loop_muted(void)
+{
+  return loop_cnt >= BLE_LOOP_MUTE_AFTER;
+}
+
+// 암호화까지 성공했으면 루프가 아니다.
+static void ble_loop_reset(void)
+{
+  loop_cnt = 0;
+  bt_addr_le_copy(&loop_addr, BT_ADDR_LE_ANY);
+}
+
+// disconnected() 에서 호출.
+static void ble_loop_note(const bt_addr_le_t *addr)
+{
+  uint32_t now = k_uptime_get_32();
+
+  if (bt_addr_le_cmp(addr, &loop_addr) == 0 && (now - loop_last_ms) < BLE_LOOP_WINDOW_MS)
+  {
+    loop_cnt++;
+  }
+  else
+  {
+    bt_addr_le_copy(&loop_addr, addr);
+    loop_cnt = 1;
+  }
+  loop_last_ms = now;
+}
+
 static void ble_advertising_update(void);
 
 static const struct bt_data ad[] = {
@@ -318,8 +362,11 @@ static void ble_advertising_update(void)
       logPrintf("[E_] ble adv start (%d)\n", err);
       return;
     }
-    logPrintf("[  ] ble advertising (profile %d, %s)\n",
-              active_profile, bleProfileIsOpen(active_profile) ? "open" : "reconnect");
+    if (!ble_loop_muted())
+    {
+      logPrintf("[  ] ble advertising (profile %d, %s)\n",
+                active_profile, bleProfileIsOpen(active_profile) ? "open" : "reconnect");
+    }
   }
   else
   {
@@ -346,7 +393,10 @@ static void connected(struct bt_conn *conn, uint8_t err)
     return;
   }
 
-  logPrintf("[OK] ble connected %s\n", addr);
+  if (!ble_loop_muted())
+  {
+    logPrintf("[OK] ble connected %s\n", addr);
+  }
 
   if (bt_hids_connected(&hids_obj, conn))
   {
@@ -363,7 +413,11 @@ static void connected(struct bt_conn *conn, uint8_t err)
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
-  logPrintf("[  ] ble disconnected (0x%02x)\n", reason);
+  ble_loop_note(bt_conn_get_dst(conn));
+  if (!ble_loop_muted())
+  {
+    logPrintf("[  ] ble disconnected (0x%02x)\n", reason);
+  }
 
   if (bt_hids_disconnected(&hids_obj, conn))
   {
@@ -404,6 +458,7 @@ static void security_changed(struct bt_conn *conn, bt_security_t level, enum bt_
     return;
   }
   logPrintf("[OK] ble security level %u\n", level);
+  ble_loop_reset();   // 암호화까지 성공 = 루프가 아니다
 }
 
 /*
@@ -711,6 +766,19 @@ void cliBle(cli_args_t *args)
                 bleProfileIsConnected(i) ? "connected" : "");
     }
     cliPrintf("advertising    : %s\n", adv_running ? "yes" : "no");
+
+    if (loop_cnt > 0)
+    {
+      char str[BT_ADDR_LE_STR_LEN];
+
+      bt_addr_le_to_str(&loop_addr, str, sizeof(str));
+      cliPrintf("\n재연결 루프    : %s %d회%s\n", str, loop_cnt,
+                ble_loop_muted() ? " (로그 억제중)" : "");
+      if (ble_loop_muted())
+      {
+        cliPrintf("  호스트에만 본딩이 남아있다 -> 호스트(PC/폰)에서 이 키보드를 삭제할 것.\n");
+      }
+    }
     ret = true;
   }
 

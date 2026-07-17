@@ -89,6 +89,15 @@ add_compile_definitions(MOUSE_ENABLE)
 
 add_compile_definitions(QMK_KEYBOARD_H="quantum.h")
 add_compile_definitions(QMK_KEYMAP_CONFIG_H="${QMK_KEYBOARD_PATH}/config.h")
+
+# 키보드 config.h 를 **모든 번역 단위 맨 앞에** 강제로 넣는다(실제 QMK 빌드 시스템과 동일).
+#
+# 없으면: quantum 헤더들이 여러 경로로 eeconfig.h 를 먼저 끌어오는데(예: via.h -> eeconfig.h
+# 가 via.h -> action.h -> config.h 보다 먼저), 그 시점엔 EECONFIG_USER_DATA_SIZE 가 없어서
+# eeconfig.h 의 `#ifndef -> 0` 이 걸린다. 그러면 데이터블록 API 선언이 통째로 빠지고
+# (implicit declaration) 나중에 config.h 가 512 로 재정의해 **번역 단위마다 EEPROM 레이아웃이
+# 어긋난다**. config.h 를 맨 앞에 두면 이 부류가 전부 사라진다.
+target_compile_options(app PRIVATE -include "${QMK_KEYBOARD_PATH}/config.h")
 add_compile_definitions(KEYMAP_C="${QMK_KEYBOARD_PATH}/keymap.c")
 
 if (RGBLIGHT_ENABLE)

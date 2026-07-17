@@ -222,6 +222,19 @@ ZMK 와 동일하게 5대가 **동시에 연결된 채로** 있고, 리포트는
   타임아웃은 `dropdown` → 1바이트라 단위를 **초/분**으로 잡아 0~255 에 맞췄다.
 - **드롭다운 기본값 주의**: `activity.c` 의 기본값(30초/60분)이 `options` 목록에 없으면
   VIA 가 빈 칸으로 표시한다. 기본값을 바꾸면 JSON 목록도 같이 볼 것.
+#### 키보드 `config.h` 는 **모든 TU 맨 앞에** 강제 include (`-include`)
+
+`target_compile_options(app PRIVATE -include <kbd>/config.h)` — 실제 QMK 빌드 시스템과 같은 방식이다.
+
+없으면 조용히 깨진다: quantum 헤더들이 여러 경로로 `eeconfig.h` 를 먼저 끌어온다
+(예: `via.h` → `eeconfig.h` 가 `via.h` → `action.h` → `config.h` 보다 먼저). 그 시점엔
+`EECONFIG_USER_DATA_SIZE` 가 없어 `#ifndef → 0` 이 걸리고 → 데이터블록 API 선언이 통째로 빠지고
+(implicit declaration) → 나중에 config.h 가 512 로 **재정의** → **번역 단위마다 EEPROM 레이아웃이
+어긋난다**. 경고로만 나타나서 놓치기 쉽다.
+
+> `add_compile_options()` 는 **안 먹는다** — Zephyr 의 `app` 라이브러리에 디렉터리 스코프 옵션이
+> 붙지 않는다. 반드시 `target_compile_options(app ...)` 를 쓸 것. (`add_compile_definitions` 는 먹는다)
+
 #### EEPROM 배치 — 크기를 바꾸지 말고 오프셋으로 늘린다 (중요)
 
 QMK EEPROM 주소는 **앞 영역 크기의 누적**이다:

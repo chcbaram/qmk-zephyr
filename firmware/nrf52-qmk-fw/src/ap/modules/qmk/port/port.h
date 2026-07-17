@@ -4,6 +4,8 @@
 // baram 포크는 여기서 kill_switch/kkuk/chattering 등 확장을 끌어왔으나,
 // 이 프로젝트(Zephyr 포팅)에서는 QMK 순정 코어만 쓰므로 최소로 유지한다.
 
+// config.h(EECONFIG_USER_DATA_SIZE 등)는 CMake 의 -include 로 모든 TU 맨 앞에 들어간다.
+// eeconfig.h 보다 먼저여야 하기 때문 — qmk/CMakeLists.txt 의 주석 참고.
 #include "version.h"
 #include "eeconfig.h"
 
