@@ -1041,23 +1041,27 @@ ZMK(완전 이벤트 구동)보다 높다. 스캔 주기와 QMK 처리 주기를
 ## 7. 빌드 / 플래시
 
 ```bash
-export ZEPHYR_BASE=/opt/nordic/ncs/v3.1.0/zephyr
-export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
-export ZEPHYR_SDK_INSTALL_DIR=/opt/nordic/ncs/toolchains/0c0f19d91c/opt/zephyr-sdk
-PATH=/opt/nordic/ncs/toolchains/5c0d382932/bin:$PATH
-
-# 릴리스(기본) — 콘솔 없음, 80.9µA
-west build -b NRF52840/nrf52840 -d build -p always --no-sysbuild . -- \
-     -DBOARD_ROOT=$PWD
-
-# 개발 — UART 콘솔/CLI/로그 포함 (전류 ~1.2mA. 전력 측정용 빌드엔 절대 쓰지 말 것)
-west build -b NRF52840/nrf52840 -d build -p always --no-sysbuild . -- \
-     -DBOARD_ROOT=$PWD -DDEBUG_CONSOLE=y
+./build.sh                 # wish60 릴리스
+./build.sh wish65          # wish65 릴리스
+./build.sh wish65 -d       # wish65 개발(콘솔)
+./build.sh wish60 -d -p    # pristine 재빌드
+./build.sh --help
 ```
-- 산출물: `build/zephyr/zephyr.uf2` (start `0x1000`, family `0xada52840`)
+- 산출물: **`build/<board>[-debug]/zephyr/zephyr.uf2`** (start `0x1000`)
 - 플래시: 더블탭 리셋 → UF2 매스스토리지에 드래그드롭
-- **`--no-sysbuild` 를 빼먹으면 부팅하지 않는다** (§2.2)
 - 릴리스 빌드는 **시리얼이 물리적으로 없다** — 부팅 확인은 타이핑/BLE 연결로 한다
+
+**보드/빌드타입마다 폴더가 갈린다.** 한 폴더를 공유하면 보드를 바꿀 때마다 pristine 이 필요하고
+그때 **다른 보드의 산출물이 지워진다**(실제로 겪었다). 나누면 그럴 일이 없고 증분 빌드도 산다.
+
+스크립트가 하는 일(직접 west 를 부를 때 빠뜨리기 쉬운 것들):
+- **`--no-sysbuild`** — 빼먹으면 부팅하지 않는다. NCS Partition Manager 가 앱을 `0x0` 에 링크해
+  미리 플래시된 UF2 부트로더의 `code_partition`(0x1000)과 어긋난다(§2.2).
+- **`-DBOARD_ROOT=$PWD`** — out-of-tree board(`boards/baram/<kbd>`)를 찾게 한다.
+- **SoC 를 `board.yml` 에서 읽는다** — wish60=nrf52840, wish65=**nrf52833**. 보드마다 다르므로
+  스크립트에 표를 두지 않는다(새 보드를 추가해도 스크립트를 고칠 일이 없다).
+- `-DDEBUG_CONSOLE=y` 는 C 매크로와 `debug.conf`(Kconfig)를 **함께** 켠다 — 둘이 갈라지면
+  조용히 전류를 먹는다(§6.1).
 
 | 빌드 | FLASH | RAM | idle 전류 |
 |---|---|---|---|
