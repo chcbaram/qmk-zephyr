@@ -7,10 +7,16 @@ bool hwInit(void)
 {
   bspInit();
 
+#ifdef _USE_HW_LED
   ledInit();
+#endif
   batteryInit();
+#ifdef _USE_HW_EXT_POWER
   extPowerInit();
+#endif
+#ifdef _USE_HW_WS2812
   ws2812Init();
+#endif
 
 #ifdef _USE_HW_DEBUG_CONSOLE
   // 디버그 콘솔(UART/CLI/로그). 저전력 빌드에선 통째로 빠진다(hw_def.h 참고).

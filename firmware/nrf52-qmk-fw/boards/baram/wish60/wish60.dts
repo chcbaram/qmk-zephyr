@@ -1,12 +1,12 @@
 /dts-v1/;
 #include <nordic/nrf52840_qiaa.dtsi>
-#include "NRF52840-pinctrl.dtsi"
+#include "wish60-pinctrl.dtsi"
 #include <zephyr/dt-bindings/dt-util.h>   // BIT()
 #include <zephyr/dt-bindings/led/led.h>      // LED_COLOR_ID_* (ws2812 color-mapping)
 
 / {
-	model = "NRF52840";
-	compatible = "baram,NRF52840";
+	model = "wish60";
+	compatible = "baram,wish60";
 
 	chosen {
 		zephyr,sram = &sram0;

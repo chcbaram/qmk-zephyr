@@ -134,7 +134,7 @@ static const struct bt_data ad[] = {
 };
 
 static const struct bt_data sd[] = {
-  BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
+  BT_DATA(BT_DATA_NAME_COMPLETE, KBD_NAME, sizeof(KBD_NAME) - 1),
 };
 
 // clang-format off
@@ -686,6 +686,23 @@ bool bleInit(void)
   if (IS_ENABLED(CONFIG_SETTINGS))
   {
     settings_load();
+  }
+
+  /*
+   * BLE 이름 = 키보드 config.h 의 KBD_NAME (USB 제품명과 같은 출처).
+   *
+   * prj.conf 는 **모든 보드가 공유**하므로 거기 CONFIG_BT_DEVICE_NAME 으로 키보드 이름을
+   * 박으면 새 키보드가 남의 이름으로 광고된다(실제로 전부 "WISH60" 이었다). 광고 데이터만
+   * 고치는 것으로는 부족하다 — GATT 의 Device Name 특성이 여전히 옛 이름을 반환해 거짓말이
+   * 된다. bt_set_name() 이 둘 다 맞춘다.
+   *
+   * settings_load() **뒤**여야 한다. BT_SETTINGS 는 이름도 "bt/name" 으로 저장/복원하므로,
+   * 앞에서 부르면 옛 이름이 우리 값을 덮는다. (값이 같으면 flash 쓰기도 없다)
+   */
+  err = bt_set_name(KBD_NAME);
+  if (err)
+  {
+    logPrintf("[E_] bt_set_name %s (%d)\n", KBD_NAME, err);
   }
 
   is_init = true;
