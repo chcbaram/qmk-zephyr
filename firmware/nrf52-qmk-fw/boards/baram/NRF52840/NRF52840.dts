@@ -206,12 +206,7 @@
 &spi3 {
   compatible = "nordic,nrf-spim";
   status = "okay";
-  /*
-   * 전송 사이에 SPIM3 를 suspend(=nrfx_spim_uninit)시킨다. 없으면 첫 전송 후 계속 ENABLE 로
-   * 남아 RGB 를 꺼도 ~1mA 를 먹는다(실측). anomaly 195 workaround 도 uninit 때 적용된다.
-   * 이 속성 덕에 **spi3 에만** 런타임 PM 이 걸린다(다른 디바이스는 영향 없음).
-   */
-  zephyr,pm-device-runtime-auto;
+
   pinctrl-0 = <&spi3_default>;
   pinctrl-1 = <&spi3_sleep>;
   pinctrl-names = "default", "sleep";

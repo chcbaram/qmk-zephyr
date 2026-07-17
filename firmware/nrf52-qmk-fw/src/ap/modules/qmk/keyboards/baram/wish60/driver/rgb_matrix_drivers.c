@@ -2,6 +2,8 @@
 #include "rgb_matrix.h"
 #include "ws2812.h"
 #include "ext_power.h"
+#include <zephyr/pm/device.h>
+#include <zephyr/device.h>
 
 /*
  * QMK RGB_MATRIX <-> 우리 hw 드라이버 연결.
@@ -29,6 +31,28 @@ static void rgb_matrix_ws2812_set_color_all(uint8_t r, uint8_t g, uint8_t b)
 }
 
 /*
+ * SPIM3 를 RGB on/off 에 맞춰 켜고 끈다.
+ *
+ * spi_nrfx_spim.c 는 첫 전송 때 nrfx_spim_init() 하고 그 뒤 **계속 ENABLE 로 남는다** —
+ * RGB 를 꺼도 ~1mA 를 계속 먹는다(실측). SPIM3 는 nRF52840 anomaly 195 대상이고 그
+ * workaround 는 nrfx_spim_uninit() 때 적용되므로 uninit 이 반드시 필요하다.
+ *
+ * CONFIG_PM_DEVICE_RUNTIME(전송마다 자동 suspend)은 **쓰지 않는다** — idle 이 69µA -> 652µA 로
+ * 10배 악화됐다(실측). 여기서 RGB on/off 시점에만 직접 건드린다.
+ */
+static const struct device *spi_dev = DEVICE_DT_GET(DT_NODELABEL(spi3));
+
+static void rgb_matrix_spi_set(bool on)
+{
+  if (!device_is_ready(spi_dev))
+  {
+    return;
+  }
+  // -EALREADY 는 정상(이미 그 상태). 그 외 실패는 다음 호출에서 재시도된다.
+  pm_device_action_run(spi_dev, on ? PM_DEVICE_ACTION_RESUME : PM_DEVICE_ACTION_SUSPEND);
+}
+
+/*
  * 실제 전송 + **ext-power 레일을 RGB on/off 에 자동으로 따라가게** 한다.
  *
  * 레일은 부팅 시 꺼져 있다(DTS 에 regulator-boot-on 없음). 네오픽셀은 검은색을 표시해도
@@ -44,6 +68,7 @@ static void rgb_matrix_ws2812_flush(void)
 
   if (want_on && !extPowerIsEnabled())
   {
+    rgb_matrix_spi_set(true);
     extPowerEnable();
     wait_ms(2);   // DTS startup-delay-us 후 레일 안정화. 바로 쏘면 첫 프레임이 깨진다
   }
@@ -53,6 +78,7 @@ static void rgb_matrix_ws2812_flush(void)
   if (!want_on && extPowerIsEnabled())
   {
     extPowerDisable();
+    rgb_matrix_spi_set(false);   // SPIM3 uninit — 안 하면 ~1mA 가 남는다
   }
 }
 
