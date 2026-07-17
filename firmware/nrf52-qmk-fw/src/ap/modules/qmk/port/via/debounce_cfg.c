@@ -11,8 +11,14 @@
  * 범위 — baram-qmk(VENOM)와 같은 5~40ms.
  *  5  : 이보다 낮추면 기계식 접점 채터링을 못 걸러 중복 입력이 난다.
  *  40 : 이보다 높이면 타이핑 지연이 체감된다.
- * 기본 10ms 는 config.h 의 컴파일타임 DEBOUNCE 와 같은 값(= EEPROM 이 비었을 때의 동작이
- * 빌드타임 동작과 일치하도록).
+ *
+ * VIA UI 는 **드롭다운**이다(VENOM 과 동일한 5ms 단위: 5/10/.../40). 슬라이더가 아니라서
+ * 값은 이산적이지만, 여기서는 범위로만 검증한다 — 목록에 없는 값이 와도(다른 도구/구버전 JSON)
+ * 동작에는 문제가 없고, 다만 VIA 드롭다운이 "선택 없음"으로 보일 뿐이다.
+ *
+ * [기본값은 드롭다운 옵션 중 하나여야 한다] 아니면 공장초기화 직후 VIA 가 선택 없음으로 뜬다.
+ * 10 은 목록에 있고, config.h 의 컴파일타임 DEBOUNCE 와도 같은 값이다(= EEPROM 이 비었을 때의
+ * 동작이 빌드타임 동작과 일치하도록).
  */
 #define DEBOUNCE_TIME_MIN       5
 #define DEBOUNCE_TIME_MAX       40
@@ -94,7 +100,7 @@ static void via_qmk_debounce_set_value(uint8_t *data)
       {
         uint8_t v = value_data[0];
 
-        // VIA 슬라이더가 범위를 지키지만 신뢰하지 않는다 — 0 이 들어오면 디바운스가 무력화된다.
+        // VIA 드롭다운이 범위를 지키지만 신뢰하지 않는다 — 0 이 들어오면 디바운스가 무력화된다.
         if (v < DEBOUNCE_TIME_MIN) v = DEBOUNCE_TIME_MIN;
         if (v > DEBOUNCE_TIME_MAX) v = DEBOUNCE_TIME_MAX;
 
