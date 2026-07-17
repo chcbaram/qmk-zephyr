@@ -68,6 +68,7 @@ static void output_select_task(void)
  */
 static void qmk_usb_suspend_cb(bool suspended)
 {
+  logPrintf("[  ] usb %s -> qmk suspend hook\n", suspended ? "SUSPEND" : "RESUME");
   if (suspended)
   {
     suspend_power_down_quantum();
@@ -147,7 +148,18 @@ uint32_t qmkGetIdleWaitMs(void)
 
 void qmkUpdate(void)
 {
+  /*
+   * [순서 주의] output_select_task() 가 **먼저**다.
+   *
+   * keyboard_task() 안의 led_task() 는 host_keyboard_leds() 를 읽는데, 그건 활성 host_driver 를
+   * 탄다. 전환을 뒤에 하면 이번 회차의 led_task 는 **이전 드라이버**의 LED 상태를 읽는다.
+   * 부팅 시 cur_driver 는 usb_driver 라, BLE 전용 연결에서 첫 회차가 USB 의 0 을 읽고
+   * 그 뒤 BLE 로 전환된다. 그리고 루프가 잠들면(호스트의 주기 리포트는 값이 같아 qmkWake 를
+   * 부르지 않는다) **idle 데드라인 30초가 지나서야** LED 가 켜졌다(실제로 겪음).
+   * 전환을 먼저 하면 같은 회차의 led_task 가 올바른 드라이버를 읽는다.
+   */
+  output_select_task();
+
   keyboard_task();
   eeprom_task();
-  output_select_task();
 }
