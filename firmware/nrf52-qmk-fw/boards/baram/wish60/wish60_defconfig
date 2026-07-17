@@ -12,3 +12,11 @@ CONFIG_CLOCK_CONTROL_NRF_K32SRC_50PPM=y
 
 # DCDC 레귤레이터: LDO 대비 전류 크게 절감.
 CONFIG_BOARD_ENABLE_DCDC=y
+
+# BLE Device Information Service — **보드마다 다른 값**(prj.conf 는 공유라 여기 둔다).
+# 예전엔 모델명이 공통 prj.conf 의 "nrf52840" 이라 wish65 도 그렇게 광고했다(거짓말).
+# 아래 두 값은 키보드 config.h 의 KBD_NAME / USB_PID 와 **반드시 일치**해야 한다 —
+# 어긋나면 port/ble.c 의 BUILD_ASSERT 가 잡는다(DIS 는 Kconfig 로만 설정돼 C 값을 못 읽는다).
+CONFIG_BT_DIS_MODEL_NUMBER=y
+CONFIG_BT_DIS_MODEL_NUMBER_STR="WISH60"
+CONFIG_BT_DIS_PNP_PID=0x5208

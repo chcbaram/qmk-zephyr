@@ -6,7 +6,10 @@
 #include <zephyr/devicetree.h>
 
 
-#define _DEF_FIRMWATRE_VERSION      "V250929R1"
+// 버전의 단일 출처는 **앱 Kconfig 의 KBD_FW_VERSION** 이다(레포 루트의 Kconfig).
+// 여기 문자열을 박으면 안 된다 — BLE DIS 의 Firmware Revision 은 Kconfig 로만 설정되고,
+// Kconfig 는 C 매크로를 못 읽는다. 그래서 방향이 이쪽뿐이다(C 가 Kconfig 를 읽는다).
+#define _DEF_FIRMWATRE_VERSION      CONFIG_KBD_FW_VERSION
 #define _DEF_BOARD_NAME             "QMK-ZEPHYR"
 
 

@@ -153,6 +153,27 @@ static const struct bt_data ad[] = {
  *
  * 초기값은 접미사 없는 KBD_NAME — 아래 이름 생성이 실패해도 광고는 정상 동작한다.
  */
+/*
+ * [DIS 정합성] Device Information Service 의 모델명/PnP PID 는 **Kconfig(보드 defconfig)** 로만
+ * 설정된다 — dis_set() 이 런타임에 다루는 건 manuf/model/serial/fw/hw 뿐이고 PnP 는 없으며,
+ * Kconfig 는 C 매크로를 못 읽는다. 그래서 키보드 config.h 의 값과 **중복**될 수밖에 없다.
+ *
+ * 중복 자체는 피할 수 없으니 **어긋나는 것만 막는다**. 어긋나면 호스트에게 거짓말을 하게 되고
+ * (예전에 모델명이 공통 prj.conf 의 "nrf52840" 이라 nRF52833 인 wish65 도 그렇게 광고했다)
+ * 조용히 틀리는 종류라 눈으로는 못 잡는다.
+ *
+ * __builtin_strcmp 는 양쪽이 리터럴이면 컴파일타임에 접힌다.
+ *
+ * [메시지는 ASCII 로] _Static_assert 는 한글을 8진 이스케이프로 뱉어서
+ * "\37777777753\37777777663..." 처럼 읽을 수 없게 된다. 읽으라고 쓰는 메시지다.
+ */
+BUILD_ASSERT(__builtin_strcmp(CONFIG_BT_DIS_MODEL_NUMBER_STR, KBD_NAME) == 0,
+             "board defconfig CONFIG_BT_DIS_MODEL_NUMBER_STR != keyboard config.h KBD_NAME");
+BUILD_ASSERT(CONFIG_BT_DIS_PNP_PID == USB_PID,
+             "board defconfig CONFIG_BT_DIS_PNP_PID != keyboard config.h USB_PID");
+BUILD_ASSERT(CONFIG_BT_DIS_PNP_VID == USB_VID,
+             "prj.conf CONFIG_BT_DIS_PNP_VID != keyboard config.h USB_VID");
+
 static char name_buf[CONFIG_BT_DEVICE_NAME_MAX] = KBD_NAME;
 
 static struct bt_data sd[] = {

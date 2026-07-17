@@ -17,3 +17,7 @@ CMakeUserPresets.json
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #cmake-build-*
+
+# 배포 산출물 (release.sh 가 만든다). 소스에서 언제든 재생성되므로 레포에 두지 않는다 —
+# GitHub 배포는 Releases 에 zip 을 첨부하는 방식.
+output/

@@ -1,0 +1,20 @@
+# 앱 전용 Kconfig. Zephyr 가 자동으로 source 한다.
+
+config KBD_FW_VERSION
+	string "펌웨어 버전 (baram 관례: V + YYMMDD + R#)"
+	default "V260717R1"
+	help
+	  **버전의 단일 출처.** 여기 하나만 고치면 다음이 전부 따라간다:
+	    - 부팅 로그 (hw_def.h 의 _DEF_FIRMWATRE_VERSION)
+	    - BLE DIS 의 Firmware Revision 특성 (BT_DIS_FW_REV_STR 의 default)
+	    - release.sh 가 만드는 파일명 (output/<board>-<ver>.uf2)
+
+	  C 매크로(hw_def.h)가 아니라 Kconfig 에 두는 이유: Kconfig 는 C 를 못 읽지만 C 는
+	  Kconfig 를 읽을 수 있다. DIS 처럼 Kconfig 로만 설정되는 소비자가 있으므로 여기가
+	  유일하게 성립하는 자리다.
+
+# BLE DIS 의 펌웨어 리비전을 위 값으로. (Zephyr 기본값은 "0.0.0+0")
+config BT_DIS_FW_REV_STR
+	default KBD_FW_VERSION
+
+source "Kconfig.zephyr"
