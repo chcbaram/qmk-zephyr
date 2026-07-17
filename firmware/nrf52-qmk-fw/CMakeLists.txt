@@ -11,9 +11,15 @@ if (DEBUG_CONSOLE)
   list(APPEND EXTRA_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/debug.conf)
 endif()
 
-# 우리 DTS 바인딩(dts/bindings/) 을 Zephyr 가 찾게 한다 — 595 시프트레지스터(baram,gpio-595)용.
-# find_package(Zephyr) 전에 설정돼야 한다.
-list(APPEND DTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+# out-of-tree board(boards/baram/<kbd>) 와 DTS 바인딩(dts/bindings/) 을 Zephyr 가 찾게 한다.
+# 둘 다 find_package(Zephyr) **전에** 설정돼야 한다.
+#
+# [왜 여기서 하나] Zephyr 는 앱 폴더를 BOARD_ROOT 에 자동으로 넣지 않는다(확인함 —
+# 없으면 "No board named 'wish65' found"). 예전엔 빌드할 때마다 -DBOARD_ROOT=$PWD 를 넘겼는데,
+# 그러면 west 를 직접 부르거나 VS Code nRF Connect 확장을 쓸 때마다 그걸 기억해야 한다.
+# 여기 두면 **어떤 방법으로 빌드하든** 보드를 찾는다.
+list(APPEND BOARD_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+list(APPEND DTS_ROOT   ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 

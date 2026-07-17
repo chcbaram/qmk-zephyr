@@ -1131,11 +1131,32 @@ ZMK(완전 이벤트 구동)보다 높다. 스캔 주기와 QMK 처리 주기를
 스크립트가 하는 일(직접 west 를 부를 때 빠뜨리기 쉬운 것들):
 - **`--no-sysbuild`** — 빼먹으면 부팅하지 않는다. NCS Partition Manager 가 앱을 `0x0` 에 링크해
   미리 플래시된 UF2 부트로더의 `code_partition`(0x1000)과 어긋난다(§2.2).
-- **`-DBOARD_ROOT=$PWD`** — out-of-tree board(`boards/baram/<kbd>`)를 찾게 한다.
 - **SoC 를 `board.yml` 에서 읽는다** — wish60=nrf52840, wish65=**nrf52833**. 보드마다 다르므로
   스크립트에 표를 두지 않는다(새 보드를 추가해도 스크립트를 고칠 일이 없다).
 - `-DDEBUG_CONSOLE=y` 는 C 매크로와 `debug.conf`(Kconfig)를 **함께** 켠다 — 둘이 갈라지면
   조용히 전류를 먹는다(§6.1).
+
+`BOARD_ROOT`/`DTS_ROOT` 는 **`CMakeLists.txt` 가 스스로 넣는다** — 인자로 안 넘겨도 된다.
+Zephyr 는 앱 폴더를 자동으로 보지 않아서(확인함: 없으면 `No board named 'wish65' found`)
+예전엔 매번 `-DBOARD_ROOT=$PWD` 를 넘겼는데, 그러면 west 를 직접 부르거나 IDE 로 빌드할 때마다
+그걸 기억해야 한다. CMake 안에 두면 **어떤 방법으로 빌드하든** 보드를 찾는다.
+
+### 7.1 VS Code nRF Connect 확장으로 빌드할 때
+
+**빌드 설정마다 "Use sysbuild" 를 반드시 꺼라.** 확장은 sysbuild 가 기본이고, 켜져 있으면
+**빌드는 성공하는데 키보드가 부팅하지 않는다**(§2.2) — 조용히 틀리는 종류라 제일 위험하다.
+
+| 빌드 설정 | Board | Sysbuild | Extra CMake args |
+|---|---|---|---|
+| wish60 | `wish60/nrf52840` | **off** | (없음) |
+| wish65 | `wish65/nrf52833` | **off** | (없음) |
+| wish65-debug | `wish65/nrf52833` | **off** | `-DDEBUG_CONSOLE=y` |
+
+- **SoC qualifier 가 보드마다 다르다** — wish60 은 `nrf52840`, wish65 는 **`nrf52833`**.
+- `BOARD_ROOT` 는 넘길 필요 없다(위 참고). `board.yml` 이 있어 보드 목록에 뜬다.
+- 확장은 빌드 설정마다 폴더를 따로 잡으므로 보드별 분리는 자동이다.
+- **`.vscode/settings.json` 에 미리 박아두지 않는다** — 확장 버전마다 스키마가 달라서 UI 로
+  만드는 편이 확실하다.
 
 | 빌드 | FLASH | RAM | idle 전류 |
 |---|---|---|---|
