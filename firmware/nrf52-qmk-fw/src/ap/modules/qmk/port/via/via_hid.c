@@ -1,6 +1,7 @@
 #include "via_hid.h"
 #include "raw_hid.h"
 #include "usb_hid/usb_hid.h"
+#include "qmk/qmk.h"
 
 /*
  * VIA raw HID 브릿지 (usb_hid ↔ QMK via.c).
@@ -12,6 +13,10 @@
 static void via_hid_receive(uint8_t *data, uint8_t length)
 {
   raw_hid_receive(data, length);
+
+  // VIA 명령이 RGB 등 상태를 바꿨을 수 있다. 메인 루프가 idle 로 잠들어 있으면 그 변화가
+  // 반영되지 않으므로(rgb_matrix_task 가 안 돎 -> 불이 안 들어옴) 깨워준다.
+  qmkWake();
 }
 
 void via_hid_init(void)
