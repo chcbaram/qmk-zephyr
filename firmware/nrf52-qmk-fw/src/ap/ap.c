@@ -43,8 +43,9 @@ void apMain(void)
       // 들어가 **돌아오지 않는다**(키 누르면 리셋 부팅).
       activityUpdate();
 
-      // 키 입력 또는 다음 상태 전이(데드라인)까지 블록. 0 이면 무한.
-      qmkWaitActivity(activityGetWaitMs());
+      // 키 입력 또는 다음 데드라인까지 블록. RGB 애니메이션이 켜져 있으면 프레임 주기로
+      // 깨어난다(qmkGetIdleWaitMs 가 판단) — 안 그러면 애니메이션이 멈춘다.
+      qmkWaitActivity(qmkGetIdleWaitMs());
     }
     else
     {
