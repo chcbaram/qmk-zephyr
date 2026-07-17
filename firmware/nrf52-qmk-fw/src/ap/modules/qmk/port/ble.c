@@ -13,6 +13,7 @@
 #include <bluetooth/services/hids.h>
 #include <zephyr/bluetooth/services/bas.h>
 #include "battery.h"
+#include "qmk/qmk.h"
 #include "cli.h"
 
 #if CLI_USE(HW_BLE)
@@ -222,7 +223,12 @@ static void led_outp_rep_handler(struct bt_hids_rep *rep, struct bt_conn *conn, 
   {
     return;
   }
-  led_state = rep->data[0];
+
+  if (led_state != rep->data[0])
+  {
+    led_state = rep->data[0];
+    qmkWake();   // led_task() 가 폴링한다 — 루프가 자고 있으면 반영이 안 된다
+  }
 }
 
 static void boot_kb_outp_rep_handler(struct bt_hids_rep *rep, struct bt_conn *conn, bool write)

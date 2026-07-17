@@ -22,7 +22,7 @@ typedef struct
 } led_tbl_t;
 
 const led_tbl_t led_tbl[LED_MAX_CH] = {
-  {HW_TYPE_DT, GPIO_DT_SPEC_GET(DT_NODELABEL(led), gpios), 0, _DEF_HIGH, _DEF_LOW}, // LED
+  {HW_TYPE_DT, GPIO_DT_SPEC_GET(DT_NODELABEL(led), gpios), 0, _DEF_HIGH, _DEF_LOW}, // _DEF_LED1 디버그용
 };
 
 

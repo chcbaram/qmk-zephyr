@@ -95,7 +95,8 @@ bool qmkInit(void)
   activityInit();
   viaPortInit();
 
-  usbSetSuspendFunc(qmk_usb_suspend_cb);   // 호스트 PC 가 자면 RGB 소등   // EEPROM 에 저장된 전력 설정을 activity 에 적용 (activityInit 뒤여야 한다)
+  usbSetSuspendFunc(qmk_usb_suspend_cb);   // 호스트 PC 가 자면 RGB 소등
+  usbHidSetKbdLedFunc(qmkWake);            // LED 리포트 도착 -> led_task 가 돌도록 깨움   // EEPROM 에 저장된 전력 설정을 activity 에 적용 (activityInit 뒤여야 한다)
 
   logPrintf("[OK] qmkInit()\n");
   logPrintf("     MATRIX %d x %d, DEBOUNCE %d\n", MATRIX_ROWS, MATRIX_COLS, DEBOUNCE);

@@ -24,6 +24,8 @@
 // #define _USE_HW_KEYS
 #define      HW_KEYS_PRESS_MAX     6      // QMK keyboard report 키 개수(6KRO boot)
 
+// 디버그용 LED 만(하트비트 등). 키보드 인디케이터(Caps)는 별개 부품이라 여기 없다 —
+// DTS 의 caps_led 노드 + keyboards/<kbd>/port/led_port.c 참고.
 #define _USE_HW_LED
 #define      HW_LED_MAX_CH          1
 

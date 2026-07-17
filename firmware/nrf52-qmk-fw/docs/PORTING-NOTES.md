@@ -558,6 +558,15 @@ QMK 가 배선을 다 해준다 — `keyboard_task()` → `led_task()` → `host
 LED 리포트를 읽고, 바뀌면 `led_update_kb()`(weak)를 부른다. `host_keyboard_leds()` 는 활성
 host_driver 를 타므로 **USB/BLE 어느 쪽이든 그대로 동작**한다(driver_usb/driver_ble 의 keyboard_leds).
 
+- **핀 (실보드 기준)**: 디버그 LED = **P0.31**(`led`, hw/driver/led.c), Caps = **P0.05**(`caps_led`).
+  **ZMK wish60.dts 의 `blue_led`(P0.31)를 Caps 로 베끼면 안 된다** — 그건 디버그용이고 Caps 는 별개 부품이다.
+- **드라이버를 나눠 둔다**: `led.c` 는 개발용(하트비트)이고 Caps 는 키보드 기능이라 수명이 다르다.
+  Caps 는 `led_port.c` 가 `GPIO_DT_SPEC_GET(caps_led)` 로 직접 소유한다. DTS 도 노드를 분리
+  (`indicator_leds`). `compatible` 은 `gpio-leds` — `gpio-keys` 를 컨테이너로 쓰면 입력 드라이버가
+  붙어 `zephyr-code` 를 요구한다. `CONFIG_LED` 를 안 켜므로 LED 서브시스템은 안 붙고 DT 매크로만 쓴다.
+- **미설정 핀은 µA 를 샌다**: Caps 핀을 추가하고 `GPIO_OUTPUT_INACTIVE` 로 구동했더니 **대기 전류가
+  10µA 이상 줄었다**(실측). 플로팅 입력에 LED 회로가 물리면 핀이 중간 전압에 떠서 입력 버퍼에
+  관통 전류가 흐른다. **보드의 미사용/미설정 핀은 명시적으로 구동할 것.**
 - 구현: `keyboards/<kbd>/port/led_port.c` 에서 `led_update_kb()` 오버라이드.
   **ramune60(upstream QMK, baram 보드)과 같은 구조** — 차이는 GPIO 접근뿐이다
   (ramune60: QMK `gpio_write_pin(GP7)` / 우리: Zephyr `gpio_dt_spec` 기반 `ledOn/ledOff`).
@@ -566,6 +575,11 @@ host_driver 를 타므로 **USB/BLE 어느 쪽이든 그대로 동작**한다(dr
   → `led_set(0)` → `led_update_kb({0})`. deep sleep → `activityEnterSleep()` → `ledToSleep()`.
 - **전력**: 켜져 있으면 ≈1.2mA(실측) — idle 57µA 의 **20배**. Caps Lock 은 평소 꺼져 있어
   괜찮지만 "항상 켜두는 인디케이터"를 추가할 땐 이 숫자를 기억할 것.
+
+> **LED 리포트는 비동기다**: `led_task()` 는 `host_keyboard_leds()` 를 **폴링**하는데 호스트의
+> LED 리포트는 언제든 온다. 루프가 idle 로 자고 있으면 반영이 안 된다(LED 가 안 켜짐).
+> → USB: `usbHidSetKbdLedFunc(qmkWake)` / BLE: `led_outp_rep_handler` 에서 `qmkWake()`.
+> §2.6 폴링 모델의 또 다른 청구서.
 
 > **버그 하나 발견/수정**: `ledToSleep()` 이 `nrf_gpio_cfg_default(led_tbl[i].pin)` 을 불렀는데,
 > `HW_TYPE_DT` 항목은 `.pin` 이 0 이다(핀 정보는 `h_dt` 안). 즉 LED 가 아니라 **P0.00 = XL1
