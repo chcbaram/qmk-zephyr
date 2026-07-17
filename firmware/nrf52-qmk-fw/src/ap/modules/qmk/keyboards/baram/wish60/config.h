@@ -30,4 +30,20 @@
 // 2 = 전력/지연 균형점. BLE 는 연결 간격 11.25ms 라 이 값과 무관하다.
 #define QMK_TASK_PERIOD_MS          2
 
+// 언더글로우 — DTS led_strip 의 chain-length / HW_WS2812_MAX_CH 와 반드시 일치.
+#define RGB_MATRIX_LED_COUNT        16
+// 무선 키보드라 밝기를 제한한다. 16개 풀 화이트는 수백 mA 로 배터리를 즉시 말린다.
+#define RGB_MATRIX_MAXIMUM_BRIGHTNESS 120
+#define RGB_MATRIX_DEFAULT_VAL      60
+// 켜진 상태로 부팅하지 않는다(ZMK wish60 의 RGB_UNDERGLOW_ON_START=n 과 같은 이유).
+#define RGB_MATRIX_DEFAULT_ON       false
+// 효과는 필요한 것만 — 47개 전부 넣으면 플래시만 먹는다.
+#define ENABLE_RGB_MATRIX_SOLID_COLOR
+#define ENABLE_RGB_MATRIX_BREATHING
+#define ENABLE_RGB_MATRIX_CYCLE_ALL
+#define ENABLE_RGB_MATRIX_CYCLE_LEFT_RIGHT
+#define ENABLE_RGB_MATRIX_CYCLE_PINWHEEL
+#define ENABLE_RGB_MATRIX_RAINBOW_MOVING_CHEVRON
+#define ENABLE_RGB_MATRIX_GRADIENT_LEFT_RIGHT
+
 #define GRAVE_ESC_ENABLE

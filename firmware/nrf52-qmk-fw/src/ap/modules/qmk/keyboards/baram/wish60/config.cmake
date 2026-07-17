@@ -14,3 +14,11 @@ set(DEBOUNCE_TYPE sym_defer_pk)
 # VIA 커스텀 채널(port/via_port.c, 각 보드 port/)이 필요하다. 포팅 후 활성화:
 # set(DEBOUNCE_RUNTIME ON)   # 런타임 디바운스 타입/시간 전환 (VIA)
 # set(HOLD_OKP_RUNTIME ON)   # HOLD_ON_OTHER_KEY_PRESS 런타임 on/off (VIA)
+
+# 언더글로우(네오픽셀 16개). DTS: led_strip + ext_power.
+#
+# RGBLIGHT 가 아니라 RGB_MATRIX 를 쓴다 — LED 마다 물리 좌표(x,y)를 알아서 위치 기반 효과
+# (splash/gradient/reactive)가 가능하다. RGBLIGHT 는 선형 인덱스 기반이라 표현이 단조롭다.
+# baram 의 upstream QMK 보드(ramune60)도 언더글로우에 rgb_matrix 를 쓴다.
+# VIA 는 RGB_MATRIX_ENABLE 만 있으면 채널 3 을 자동 처리한다 — 메뉴 공짜.
+set(RGB_MATRIX_ENABLE ON)
