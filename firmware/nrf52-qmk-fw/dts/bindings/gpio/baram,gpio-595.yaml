@@ -1,0 +1,35 @@
+# 74HC595 시프트레지스터를 SPI 로 구동하는 GPIO 컨트롤러.
+#
+# [왜 네이티브 ti,sn74hc595 를 안 쓰나]
+# Zephyr 의 in-tree 바인딩은 `ngpios: const: 8` 로 **1칩 고정**이고 드라이버도 `uint8_t output`
+# 이라 직렬 연결을 지원하지 않는다. wish65 는 595 두 개를 직렬로 물려 16핀을 쓰므로 불가.
+# ZMK 의 zmk,gpio-595 (app/module/drivers/gpio/gpio_595.c) 를 이식했다 — nwrite = ngpios/8 로
+# 직렬을 지원하고, 안정 API(gpio.h/spi.h)만 써서 이식 비용이 낮다.
+#
+# 출력 전용이다(595 는 읽기가 없다). port_get_raw 는 -ENOTSUP.
+
+description: 74HC595 shift register as a GPIO controller (SPI, daisy-chainable)
+
+compatible: "baram,gpio-595"
+
+include: [gpio-controller.yaml, spi-device.yaml]
+
+properties:
+  "#gpio-cells":
+    const: 2
+
+  ngpios:
+    type: int
+    required: true
+    enum:
+      - 8
+      - 16
+      - 24
+      - 32
+    description: |
+      GPIO 개수 = 직렬 연결된 595 개수 × 8.
+      체인의 **첫 칩이 최하위 바이트**다(SPI 로는 마지막에 나가지만 시프트되어 그렇게 정렬된다).
+
+gpio-cells:
+  - pin
+  - flags

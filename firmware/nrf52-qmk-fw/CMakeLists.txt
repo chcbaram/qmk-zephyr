@@ -11,6 +11,10 @@ if (DEBUG_CONSOLE)
   list(APPEND EXTRA_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/debug.conf)
 endif()
 
+# 우리 DTS 바인딩(dts/bindings/) 을 Zephyr 가 찾게 한다 — 595 시프트레지스터(baram,gpio-595)용.
+# find_package(Zephyr) 전에 설정돼야 한다.
+list(APPEND DTS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 
