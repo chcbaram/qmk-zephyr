@@ -36,9 +36,18 @@
 #define DEBOUNCE                    10
 
 // QMK 처리 주기(ms). board DTS 의 kbd_matrix poll-period-ms 와는 별개 노브다(qmk.h 주석 참고).
-// wish60 실측(키 누른 채): 1ms=3.40mA / 2ms=2.43mA / 4ms=1.40mA. USB 리포트율은 1000/N Hz.
-// [미실측] wish65 는 컬럼 구동이 SPI 트랜잭션이라 스캔 비용이 wish60(GPIO 토글)보다 비싸다.
-// 우선 wish60 과 같은 값으로 두되, DTS 의 poll-period-ms 는 4 로 낮춰뒀다. 실측 후 조정할 것.
+// DTS 의 poll-period-ms(4ms)와 **다르다**. 의도적이다.
+//
+// 매트릭스가 4ms 마다만 갱신되므로 QMK 를 2ms 로 돌려도 **키 감지는 안 빨라진다**. 그럼에도
+// 2ms 인 이유는 **디바운스 분해능** 때문이다 — sym_defer_pk 는 매 호출마다 elapsed 만큼 카운터를
+// 줄이므로, 4ms 루프에서는 설정 10ms 가 실효 12ms 로 올림된다(10->6->2->0). 2ms 면 정확히 10ms.
+//
+// wish65 실측(키 누른 채, QMK 주기만 바꿈): 2ms=3.18mA / 4ms=2.81mA — **차이 0.37mA**.
+// 그 정도면 디바운스 정확도 + wish60 과의 일관성을 사는 값으로 낼 만하다.
+//
+// [주의] wish60 의 §6.4 표(1ms=3.40 / 2ms=2.43 / 4ms=1.40)는 **매트릭스 주기와 QMK 주기를
+// 함께** 바꾼 값이다. "주기 2배마다 ~1mA" 의 대부분은 **매트릭스 스캔 몫**이고 QMK 루프 단독은
+// 위처럼 0.37mA 다. 그 표를 QMK 단독 효과로 읽지 말 것(실제로 그렇게 오독했다).
 #define QMK_TASK_PERIOD_MS          2
 
 // 언더글로우 — DTS led_strip 의 chain-length 와 반드시 일치(BUILD_ASSERT 가 본다).
