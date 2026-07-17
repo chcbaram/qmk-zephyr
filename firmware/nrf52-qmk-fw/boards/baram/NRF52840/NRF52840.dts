@@ -2,6 +2,7 @@
 #include <nordic/nrf52840_qiaa.dtsi>
 #include "NRF52840-pinctrl.dtsi"
 #include <zephyr/dt-bindings/dt-util.h>   // BIT()
+#include <zephyr/dt-bindings/led/led.h>      // LED_COLOR_ID_* (ws2812 color-mapping)
 
 / {
 	model = "NRF52840";
@@ -55,6 +56,23 @@
    * wish60 은 row2col 이라 역매핑한다 — row-gpios = wish60 col(15), col-gpios = wish60 row(5).
    * 배경은 docs/PORTING-NOTES.md §2.4 참고.
    */
+  /*
+   * 네오픽셀 전원 레일 (wish60: P0.30).
+   *
+   * ZMK 는 zmk,ext-power-generic 이라는 자체 바인딩을 쓰지만, 이건 본질적으로 GPIO 로 켜고 끄는
+   * 고정 레귤레이터라 Zephyr 네이티브 regulator-fixed 로 충분하다(regulator_enable/disable).
+   * 흡수 코드 0 — kbd-matrix / MAX17048 과 같은 판단.
+   *
+   * wish60/wish65 둘 다 이 레일은 **네오픽셀만** 끊는다(595 는 상시 전원) — 확인됨.
+   * regulator-boot-on 을 주지 않는다 = 부팅 시 꺼진 상태. RGB 를 켤 때만 올린다(전력).
+   */
+  ext_power: ext-power {
+    compatible = "regulator-fixed";
+    regulator-name = "ext-power";
+    enable-gpios = <&gpio0 30 GPIO_ACTIVE_HIGH>;
+    startup-delay-us = <1000>;   /* 레일이 올라올 시간. 바로 쓰면 첫 프레임이 깨진다 */
+  };
+
   kbd_matrix: kbd-matrix {
     compatible = "gpio-kbd-matrix";
 
@@ -178,6 +196,30 @@
   status = "okay";
   sense-edge-mask = <(BIT(0) | BIT(10) | BIT(11) | BIT(12) |
                       BIT(13) | BIT(14) | BIT(15))>;
+};
+
+/*
+ * 네오픽셀 — Zephyr 네이티브 worldsemi,ws2812-spi (SPIM MOSI 로 비트 패턴을 쏜다).
+ * ZMK 도 같은 드라이버를 쓴다. 전원은 위 ext_power 레일이 공급한다.
+ * 값(chain-length/color-mapping/frame)은 wish60 회로 기준.
+ */
+&spi3 {
+  compatible = "nordic,nrf-spim";
+  status = "okay";
+  pinctrl-0 = <&spi3_default>;
+  pinctrl-1 = <&spi3_sleep>;
+  pinctrl-names = "default", "sleep";
+
+  led_strip: ws2812@0 {
+    compatible = "worldsemi,ws2812-spi";
+    reg = <0>;                  /* SPI 바인딩상 필요하지만 CS 는 안 쓴다 */
+    spi-max-frequency = <4000000>;
+
+    chain-length = <16>;        /* wish60 언더글로우 LED 개수 */
+    spi-one-frame = <0x70>;
+    spi-zero-frame = <0x40>;
+    color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
+  };
 };
 
 zephyr_udc0: &usbd {

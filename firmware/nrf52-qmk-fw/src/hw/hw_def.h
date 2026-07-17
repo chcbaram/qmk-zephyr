@@ -30,6 +30,13 @@
 // 배터리 잔량. 백엔드(VDDH ADC / MAX17048)는 DTS 가 정한다 — driver/battery.c
 #define _USE_HW_BATTERY
 
+// 외부 전원 레일(네오픽셀 전용). DTS: ext_power (regulator-fixed)
+#define _USE_HW_EXT_POWER
+
+// 네오픽셀 언더글로우. DTS: led_strip (worldsemi,ws2812-spi)
+#define _USE_HW_WS2812
+#define      HW_WS2812_MAX_CH       16   // DTS led_strip 의 chain-length 와 일치해야 한다
+
 // [저전력] 디버그 콘솔(UART/CLI/로그).
 //
 // _USE_HW_DEBUG_CONSOLE 은 여기서 정의하지 않는다 — CMake 의 -DDEBUG_CONSOLE=y 가
@@ -78,6 +85,7 @@
 #define _USE_CLI_HW_BATTERY         1
 #define _USE_CLI_HW_ACTIVITY        1
 #define _USE_CLI_HW_BLE             1
+#define _USE_CLI_HW_WS2812          1
 
 
 #endif

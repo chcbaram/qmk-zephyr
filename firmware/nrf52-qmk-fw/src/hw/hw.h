@@ -28,6 +28,7 @@ extern "C" {
 #include "qspi.h"
 #include "adc.h"
 #include "battery.h"
+#include "ext_power.h"
 #include "eeprom.h"
 #include "usb.h"
 
