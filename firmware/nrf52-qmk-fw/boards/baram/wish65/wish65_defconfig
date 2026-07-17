@@ -3,12 +3,9 @@ CONFIG_HW_STACK_PROTECTION=y
 
 # 전력 — wish60_defconfig 와 같은 이유로 보드 차원에서 못 박는다(기본값은 조용히 바뀐다).
 #
-# [미확인] wish65 에 외부 32.768kHz 크리스탈이 실장돼 있는지 **회로로 확인하지 못했다**.
-# zmk-config 의 wish65_defconfig 는 K32SRC 를 지정하지 않아 근거가 되지 못한다(wish60 도
-# 마찬가지였지만 우리는 wish60 회로에 크리스탈이 있음을 확인했다).
-# 여기서는 wish60 과 같은 설계라고 **가정**하고 XTAL 을 쓴다.
-# 크리스탈이 없으면 LFCLK 가 기동하지 않아 BLE 가 아예 안 붙는다 — 그 증상이 보이면
-# K32SRC_RC 로 바꿀 것(정확도는 떨어지고 주기적 캘리브레이션으로 idle 전류가 오른다).
+# 외부 32.768kHz 크리스탈(LFXO) 실장 확인됨 — 회로도의 X2(XL1/XL2, 부하 12pF).
+# LFXO 는 내장 RC 대비 정확하고 주기적 캘리브레이션(HFCLK 기동)이 없어 BLE idle 전력에 유리하다.
+# ※ 크리스탈 없는 보드를 파생시킬 땐 반드시 K32SRC_RC 로 바꿀 것(안 그러면 LFCLK 미기동).
 CONFIG_CLOCK_CONTROL_NRF_K32SRC_XTAL=y
 CONFIG_CLOCK_CONTROL_NRF_K32SRC_50PPM=y
 

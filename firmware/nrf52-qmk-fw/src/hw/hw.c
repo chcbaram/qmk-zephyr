@@ -7,9 +7,7 @@ bool hwInit(void)
 {
   bspInit();
 
-#ifdef _USE_HW_LED
-  ledInit();
-#endif
+  ledInit();   // LED 없는 보드에선 no-op (led.h)
   batteryInit();
 #ifdef _USE_HW_EXT_POWER
   extPowerInit();

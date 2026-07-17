@@ -13,7 +13,7 @@
  *  - **다이오드가 col2row** 라 매트릭스 방향이 wish60(row2col)과 **반대**다 — config.h 의
  *    MATRIX_DRIVE_IS_QMK_COL 참고. 595 는 읽기가 안 되니 반드시 구동측(col)에 있어야 하고,
  *    구동측이 col 이면 다이오드는 col2row 일 수밖에 없다. 구조적 귀결이다.
- *  - **Caps LED 가 없다**(디버그 LED 하나뿐) -> caps_led 노드 없음, led_port.c 없음.
+ *  - **디버그 LED 가 없다**(wish60 은 P0.31). Caps LED 는 P1.09 에 있다.
  *  - 네오픽셀 18개(wish60 은 16), ext-power P0.11(wish60 은 P0.30).
  */
 
@@ -28,20 +28,26 @@
 		zephyr,console = &uart0;
 	};
 
-	/* 디버그용 LED (P1.09). 하트비트 등 개발 편의 — hw/driver/led.c. 키보드 기능과 무관. */
-	leds {
-		compatible = "gpio-leds";
-		led: led_0 {
-			gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
-			label = "LED";
-		};
-	};
+	/*
+	 * **디버그 LED 가 없다** — wish60 은 P0.31 에 있지만 이 보드엔 그 부품이 없다(회로도 확인).
+	 * 그래서 `leds` 노드를 두지 않는다 -> hw_def.h 의 DT_NODE_EXISTS 가 _USE_HW_LED 를 끄고,
+	 * led.h 가 ledOn/ledOff/ledToSleep 을 no-op 매크로로 바꾼다. 공통 코드는 손댈 게 없다.
+	 *
+	 * 기판의 LED3(NCD0805R1)는 충전기(TP4054)의 CHRG 상태 표시라 MCU 가 구동하지 않는다.
+	 */
 
 	/*
-	 * wish60 과 달리 **인디케이터(Caps) LED 노드가 없다** — 이 보드엔 그 부품이 없다.
-	 * hw_def.h 가 DT_NODE_EXISTS 로 기능을 켜므로 공통 코드는 손댈 게 없고, 키보드 트리에도
-	 * led_port.c 를 두지 않으면 된다(QMK 의 led_update_kb 는 weak 라 기본 구현이 남는다).
+	 * 키보드 인디케이터 LED — Caps Lock (P1.09).
+	 * 회로: P1.09 -> R4(100) -> Q1(2N7002 NMOS) -> LED1(XL-3215UWC). 게이트 구동이므로 ACTIVE_HIGH.
+	 * 사용처: keyboards/wish65/port/led_port.c 의 led_update_kb().
 	 */
+	indicator_leds {
+		compatible = "gpio-leds";
+		caps_led: led_0 {
+			gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
+			label = "CAPS_LED";
+		};
+	};
 
 	usb_hid_kbd: hid_kbd {
 		compatible = "zephyr,hid-device";

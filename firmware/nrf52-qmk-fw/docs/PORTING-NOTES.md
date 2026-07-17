@@ -392,6 +392,43 @@ Zephyr `gpio-kbd-matrix` 의 명명은 QMK 와 무관하다: `col-gpios` = **구
 **595 보드는 반드시 col2row 다** — 구조적 귀결이지 선택이 아니다. 595 는 출력 전용(읽기 불가)이라
 반드시 구동측에 있어야 하고, 컬럼을 595 로 확장했으면 구동측 = col 이므로 다이오드는 col2row 다.
 
+### 4.1.2 "보드에 없는 부품"은 DTS 노드를 빼면 끝나야 한다
+
+새 보드가 공통 코드를 못 건드리게 하는 규약. `hw_def.h` 가 `DT_NODE_EXISTS` 로 기능을 켜고
+(§7-A), **소비자 헤더도 같이 no-op 을 제공**해야 완성된다 — `log.h`(콘솔 없는 빌드)와
+`led.h`(디버그 LED 없는 보드)가 그 패턴이다:
+
+```c
+#ifdef _USE_HW_LED
+bool ledInit(void); void ledOn(uint8_t ch); ...
+#else
+#define ledInit()   (true)
+#define ledOn(ch)   ((void)0)     // 호출부마다 #ifdef 를 두지 않기 위해
+#endif
+```
+
+hw_def.h 만 고치고 헤더를 안 따라가면 **그 부품 없는 보드에서 컴파일이 깨진다**(wish65 를
+넣을 때 실제로 겪었다 — `HW_LED_MAX_CH` 가 정의되지 않았다).
+
+**실증**: wish65 는 디버그 LED 가 없다. DTS 에서 `leds` 노드를 빼는 것만으로 `ledInit`/
+`ledToSleep` 심볼이 바이너리에서 사라졌고(nm 확인), ap.c/activity.c 의 호출부는 한 줄도
+안 고쳤다.
+
+### 4.1.3 보드 사실은 **회로도로 확인**하라 — 참고 코드는 근거가 아니다
+
+wish65 를 zmk-config 만 보고 만들었다가 회로도에서 두 개가 틀렸다:
+
+| | zmk-config 로 추정 | 회로도(실제) |
+|---|---|---|
+| Caps LED | **없다**(ZMK 엔 `blue_led` 뿐) | **P1.09** (Q1 2N7002 -> LED1) |
+| 디버그 LED | P1.09 | **없다** (LED3 는 충전기 CHRG 표시, MCU 무관) |
+| UART | P0.06/P0.08 (추측) | **TX P0.05 / RX P0.04** |
+| 32.768kHz | 있다고 **가정** | **X2 확인** (XL1/XL2, 12pF) |
+
+ZMK 보드 정의는 **그 프로젝트가 쓰는 것만** 담는다 — 안 쓰는 부품은 없는 것처럼 보인다.
+32.768kHz 도 ZMK 는 K32SRC 를 지정하지 않아 근거가 되지 못했다(크리스탈이 없으면 LFCLK 가
+기동하지 않아 **BLE 가 아예 안 붙는다** — 가정으로 넘길 문제가 아니다).
+
 ### 4.2 시프트레지스터(74HC595)로 GPIO 확장 — wish65
 wish65 는 GPIO 부족을 **595 2개 직렬(16핀)** 로 해결하고, **구동측(col)을 595 에, 읽기측(row)을 MCU GPIO** 에 둔다
 (`diode-direction = "col2row"`). 이 구성이 Zephyr `gpio-kbd-matrix` 의 명명(col=출력, row=입력)과 **그대로 일치**한다.
