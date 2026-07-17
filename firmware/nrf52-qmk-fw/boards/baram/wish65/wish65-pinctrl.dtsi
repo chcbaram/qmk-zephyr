@@ -1,19 +1,14 @@
 &pinctrl {
-  /*
-   * [미확인] wish65 의 디버그 UART 배선을 확인하지 못했다 — zmk-config 의 wish65 는 UART 를
-   * 정의하지 않는다. P0.06/P0.08 은 ZMK wish65 DTS 에서 쓰이지 않아 비어 있는 것으로 보여
-   * 골랐다(nRF52 DK 관례 핀이기도 하다). 배포 빌드엔 콘솔이 없으므로 영향이 없지만,
-   * -DDEBUG_CONSOLE=y 로 개발할 땐 **실제 배선과 맞는지 먼저 확인할 것**.
-   */
+  /* 디버그 UART — 회로도 기준: TX = P0.05(AIN3), RX = P0.04(AIN2). 디버그 커넥터 H2(PH-01291). */
   uart0_default: uart0_default {
     group1 {
-      psels = <NRF_PSEL(UART_TX, 0, 6)>, <NRF_PSEL(UART_RX, 0, 8)>;
+      psels = <NRF_PSEL(UART_TX, 0, 5)>, <NRF_PSEL(UART_RX, 0, 4)>;
     };
   };
 
   uart0_sleep: uart0_sleep {
     group1 {
-      psels = <NRF_PSEL(UART_TX, 0, 6)>;
+      psels = <NRF_PSEL(UART_TX, 0, 5)>;
     };
   };
 
