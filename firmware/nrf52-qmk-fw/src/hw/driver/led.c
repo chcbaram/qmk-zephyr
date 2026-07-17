@@ -65,7 +65,19 @@ bool ledToSleep(void)
   for (int i=0; i<LED_MAX_CH; i++)
   {
     ledOff(i);
-    nrf_gpio_cfg_default(led_tbl[i].pin);
+
+    // 핀을 끊어 누설을 막는다.
+    // [주의] HW_TYPE_DT 항목은 .pin 이 0 이다(핀 정보는 h_dt 안에 있다). 예전엔 여기서
+    // nrf_gpio_cfg_default(led_tbl[i].pin) 을 불렀는데, 그러면 LED 가 아니라 **P0.00 을
+    // 리셋**했다 — nRF52840 에서 P0.00 은 XL1(32.768kHz 크리스탈)이다.
+    if (led_tbl[i].type == HW_TYPE_NRF)
+    {
+      nrf_gpio_cfg_default(led_tbl[i].pin);
+    }
+    else
+    {
+      gpio_pin_configure_dt(&led_tbl[i].h_dt, GPIO_DISCONNECTED);
+    }
   }
 
   return true;

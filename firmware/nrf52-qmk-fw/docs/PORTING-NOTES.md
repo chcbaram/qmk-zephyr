@@ -552,6 +552,30 @@ MAX17048 이 답이다(칩이 부하/이력 보정).
 아니라 **Zephyr 기본값**에 얹혀 있었다. LFXO/DCDC 는 전류를 좌우하므로 `NRF52840_defconfig` 에 명시했다.
 **크리스탈 없는 보드를 파생시킬 땐 `K32SRC_RC` 로 바꿔야 한다**(안 그러면 LFCLK 가 안 뜬다).
 
+### 6.7 인디케이터 LED (Caps Lock)
+
+QMK 가 배선을 다 해준다 — `keyboard_task()` → `led_task()` → `host_keyboard_leds()` 로 호스트
+LED 리포트를 읽고, 바뀌면 `led_update_kb()`(weak)를 부른다. `host_keyboard_leds()` 는 활성
+host_driver 를 타므로 **USB/BLE 어느 쪽이든 그대로 동작**한다(driver_usb/driver_ble 의 keyboard_leds).
+
+- 구현: `keyboards/<kbd>/port/led_port.c` 에서 `led_update_kb()` 오버라이드.
+  **ramune60(upstream QMK, baram 보드)과 같은 구조** — 차이는 GPIO 접근뿐이다
+  (ramune60: QMK `gpio_write_pin(GP7)` / 우리: Zephyr `gpio_dt_spec` 기반 `ledOn/ledOff`).
+  보드마다 인디케이터 구성이 다르므로 키보드 트리에 둔다.
+- **슬립 시 소등은 이미 된다**: USB 서스펜드 → `suspend_power_down_quantum()` → `led_suspend()`
+  → `led_set(0)` → `led_update_kb({0})`. deep sleep → `activityEnterSleep()` → `ledToSleep()`.
+- **전력**: 켜져 있으면 ≈1.2mA(실측) — idle 57µA 의 **20배**. Caps Lock 은 평소 꺼져 있어
+  괜찮지만 "항상 켜두는 인디케이터"를 추가할 땐 이 숫자를 기억할 것.
+
+> **버그 하나 발견/수정**: `ledToSleep()` 이 `nrf_gpio_cfg_default(led_tbl[i].pin)` 을 불렀는데,
+> `HW_TYPE_DT` 항목은 `.pin` 이 0 이다(핀 정보는 `h_dt` 안). 즉 LED 가 아니라 **P0.00 = XL1
+> (32.768kHz 크리스탈)** 을 리셋하고 있었다. System OFF 직전에만 불려 실피해는 없었지만,
+> 다른 데서 부르면 LFXO 가 깨진다 → DT 항목은 `gpio_pin_configure_dt(..., GPIO_DISCONNECTED)` 로.
+
+**부트로더 키**: 추가 작업 불필요. VIA 기본 키코드 `QK_BOOT` → `process_record_quantum` 의
+`QK_BOOTLOADER` → `reset_keyboard()` → `bootloader_jump()`(GPREGRET 0x57 + reboot, §2.3).
+VIA 의 SYSTEM > BOOT 토글(`sys_port.c`)도 같은 일을 한다.
+
 ### 6.6 네오픽셀 / ext-power (Phase 8)
 
 **ZMK 의 `zmk,ext-power-generic` 을 흡수하지 않았다.** 그건 본질적으로 "GPIO 로 켜고 끄는 고정
