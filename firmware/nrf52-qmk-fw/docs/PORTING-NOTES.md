@@ -545,6 +545,27 @@ MAX17048 이 답이다(칩이 부하/이력 보정).
 아니라 **Zephyr 기본값**에 얹혀 있었다. LFXO/DCDC 는 전류를 좌우하므로 `NRF52840_defconfig` 에 명시했다.
 **크리스탈 없는 보드를 파생시킬 땐 `K32SRC_RC` 로 바꿔야 한다**(안 그러면 LFCLK 가 안 뜬다).
 
+### 6.6 네오픽셀 / ext-power (Phase 8)
+
+**ZMK 의 `zmk,ext-power-generic` 을 흡수하지 않았다.** 그건 본질적으로 "GPIO 로 켜고 끄는 고정
+레귤레이터"라 **Zephyr 네이티브 `regulator-fixed`** 로 충분하다(`regulator_enable/disable`).
+kbd-matrix(§2.4) / MAX17048(§6.3) / ws2812 와 같은 판단 — **흡수 코드 0**.
+
+| | 우리 선택 | ZMK |
+|---|---|---|
+| 전원 레일 | `regulator-fixed` (네이티브) | `zmk,ext-power-generic` (자체) |
+| 네오픽셀 | `worldsemi,ws2812-spi` (네이티브) | 같음 |
+
+- **레일은 부팅 시 꺼진 상태**(`regulator-boot-on` 안 줌). RGB 를 켤 때만 올린다.
+  네오픽셀은 **검은색을 표시해도 컨트롤러가 개당 ~0.7mA** — 16개면 ≈11mA 로 idle 80.9µA 의 **140배**다.
+- `startup-delay-us = 1000` — 레일이 올라오기 전에 SPI 를 쏘면 첫 프레임이 깨진다.
+- `ws2812Refresh()` 는 레일이 내려가 있으면 **전송을 건너뛴다**(SPI 만 깨워 전력을 먹으므로).
+- wish60/wish65 둘 다 이 레일은 **네오픽셀만** 끊는다(595 는 상시 전원) — 확인됨(§4.2).
+- `HW_WS2812_MAX_CH` 와 DTS `chain-length` 는 **일치해야 한다**.
+
+**하드웨어 먼저 검증**: QMK RGBLIGHT 를 얹기 전에 `ws2812 color/off` CLI 로 레일·색순서·개수를
+확인한다. 여기서 틀리면 DTS(`color-mapping`, `chain-length`, MOSI 핀) 문제지 QMK 문제가 아니다.
+
 ### 6.5 deep sleep (System OFF) — 27.7µA, 여기가 바닥이다
 
 `sys_poweroff()` = nRF52 System OFF. **깨어남 = 리셋 부팅**(RAM 리텐션도 꺼진다) → 타임아웃 1시간.
