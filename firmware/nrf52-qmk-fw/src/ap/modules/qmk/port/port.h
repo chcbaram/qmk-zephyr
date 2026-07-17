@@ -35,4 +35,10 @@
 #define EECONFIG_USER_BLE     ((void *)((uint32_t)EECONFIG_USER_DATABLOCK +  4))  // 4B  TX power
 #define EECONFIG_USER_DEBOUNCE ((void *)((uint32_t)EECONFIG_USER_DATABLOCK + 8))  // 4B  디바운스 시간(ms)
 #define EECONFIG_USER_HOLD_OKP ((void *)((uint32_t)EECONFIG_USER_DATABLOCK + 12)) // 4B  HOLD_ON_OTHER_KEY_PRESS
-// 다음 빈 오프셋: 16
+#define EECONFIG_USER_RGB_CFG  ((void *)((uint32_t)EECONFIG_USER_DATABLOCK + 16)) // 4B  RGB 소등 타임아웃
+// 다음 빈 오프셋: 20
+//
+// [왜 POWER(+0)의 남는 rsv 바이트를 안 썼나] 기존 보드엔 rsv=0 이 magic 과 함께 이미 저장돼
+// 있다. 거기에 RGB 타임아웃을 얹으면 업그레이드 시 0 = "안 끔" 으로 읽혀 **RGB 가 영영 안 꺼진다**
+// (그 상태로 deep sleep 에 들어가면 네오픽셀이 65mA 로 계속 켜져 있다). 새 항목은 새 오프셋에
+// 자기 magic 과 함께 — 위 [규칙] 대로.

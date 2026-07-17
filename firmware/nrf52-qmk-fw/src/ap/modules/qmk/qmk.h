@@ -58,6 +58,13 @@ void qmkSuspendUpdate(void);
 bool qmkIsSuspended(void);
 
 /*
+ * deep sleep 진입 직전 **무조건** 소등한다(타임아웃 설정 무관).
+ * System OFF 는 GPIO 출력을 유지하므로 레일이 켜진 채 잠들면 네오픽셀이 계속 켜져 있다.
+ * port/activity.c 의 activityEnterSleep() 에서만 부른다.
+ */
+void qmkSuspendForSleep(void);
+
+/*
  * 잠들어 있는 메인 루프를 깨운다.
  *
  * 루프는 idle 이면 qmkWaitActivity() 에서 블록한다. **키 입력 말고도 루프를 다시 돌려야 하는

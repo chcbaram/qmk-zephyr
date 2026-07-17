@@ -19,20 +19,26 @@
  * 우리 IDLE 은 지금 **RGB/인디케이터 소등이 유일한 용도**다(qmkSuspendUpdate 가 유일한 소비자).
  * 즉 이 값은 사실상 "RGB 타임아웃" 이다.
  *
- * 그래서 2분으로 잡는다:
- *  - 30초는 **짧다**. 뭔가 읽거나 생각하느라 멈추면 RGB 가 꺼져 매번 거슬린다.
- *  - 길어도 거의 공짜다: RGB 65mA × 4분 = 4.3mAh = 1000mAh 의 **0.4%**(§6.10).
- *    "자리를 뜬 뒤 몇 분 더 켜짐" 의 비용은 무시할 수준이고, 진짜 절감은 그 뒤 계속 꺼져 있는
- *    데서 나온다(65mA -> 60µA).
+ * **30초로 둔다(사용자 결정).** RGB 는 65mA 라 idle 60µA 의 1000배다 — 자리를 뜨면 빨리 끄는
+ * 편이 낫다는 판단이다. 2분으로 올려봤으나(길어도 거의 공짜다: 65mA × 4분 = 4.3mAh =
+ * 1000mAh 의 0.4%) 되돌렸다.
  *
- * VIA(FEATURE > POWER > Idle Timeout)로 조절한다 — Off/5s/10s/15s/30s/1m/2m/4m.
- * **Off 를 고르면 ZMK 와 같은 동작**(deep sleep 전까지 RGB 유지)이 된다.
+ * 짧다고 느끼면 **VIA(FEATURE > POWER > Idle Timeout)에서 올리면 된다** — Off/5s/10s/15s/30s/
+ * 1m/2m/4m. **Off 를 고르면 ZMK 와 같은 동작**(deep sleep 전까지 RGB 유지)이 된다.
  *
  * [주의] 여기를 바꿔도 **EEPROM 에 저장된 값이 있으면 그게 이긴다**(power_cfg_init). 기본값은
  * EEPROM 이 비었을 때만 쓰인다 — 이미 쓰던 보드는 VIA 에서 직접 바꿔야 한다.
  */
-#define ACTIVITY_IDLE_TIMEOUT_MS_DEF    (2 * 60 * 1000)
+#define ACTIVITY_IDLE_TIMEOUT_MS_DEF    (30 * 1000)
 #define ACTIVITY_SLEEP_TIMEOUT_MS_DEF   (60 * 60 * 1000)
+
+/*
+ * RGB/인디케이터 소등은 **별도 타임아웃**이다(activity.h 주석 참고).
+ * 5분: 30초는 뭔가 읽는 동안 꺼져 거슬리고, 길게 잡아도 비용은 작다 —
+ * RGB 65mA × 5분 = 5.4mAh = 1000mAh 의 0.5%(§6.10). 진짜 절감은 그 뒤 **계속** 꺼져 있는 데서
+ * 나온다(65mA -> 60µA). VIA(FEATURE > POWER > RGB Timeout)로 조절하고, 0 = 안 끔.
+ */
+#define ACTIVITY_RGB_TIMEOUT_MS_DEF     (5 * 60 * 1000)
 
 #if CLI_USE(HW_ACTIVITY)
 static void cliActivity(cli_args_t *args);
@@ -41,6 +47,7 @@ static void cliActivity(cli_args_t *args);
 static activity_state_t state           = ACTIVITY_ACTIVE;
 static uint32_t         idle_timeout_ms  = ACTIVITY_IDLE_TIMEOUT_MS_DEF;
 static uint32_t         sleep_timeout_ms = ACTIVITY_SLEEP_TIMEOUT_MS_DEF;
+static uint32_t         rgb_timeout_ms   = ACTIVITY_RGB_TIMEOUT_MS_DEF;
 
 /*
  * deep sleep = nRF52 System OFF.
@@ -69,9 +76,22 @@ static void activityEnterSleep(void)
 
   ledToSleep();
 
-  // TODO(Phase 8): ext-power off — 네오픽셀 전원 레일. 지금은 소비자가 없어 레일이 꺼져 있다.
+  /*
+   * [필수] RGB/인디케이터를 **무조건** 끈다 — 타임아웃 설정과 무관하게.
+   *
+   * sys_poweroff() 는 GPIO 를 건드리지 않는다(RAM 리텐션만 끄고 nrf_power_system_off()).
+   * nRF52 는 System OFF 에서 **GPIO 출력 상태를 유지**하므로, 레일이 켜진 채 잠들면
+   * **네오픽셀이 65mA 로 영원히 켜져 있다**. Caps LED(1.2mA)도 마찬가지다.
+   *
+   * 평소엔 RGB 타임아웃(2분)이 sleep(1시간)보다 훨씬 빨라 이미 꺼져 있지만, VIA 에서
+   * RGB Timeout = Off 를 고르면 그대로 터진다. 여기서 못 박는다.
+   *
+   * (예전 주석은 "지금은 소비자가 없어 레일이 꺼져 있다" 였는데 Phase 6 시절 이야기다 —
+   *  Phase 8 에서 ws2812 가 들어오며 낡았다)
+   */
+  qmkSuspendForSleep();
 
-  k_msleep(10);   // 로그 flush 여유(콘솔 빌드)
+  k_msleep(10);   // 로그 flush 여유(콘솔 빌드) + 레일 방전
 
   sys_poweroff();   // 돌아오지 않는다
 }
@@ -111,7 +131,7 @@ void activityUpdate(void)
   }
 
   /*
-   * IDLE 진입을 RGB/인디케이터에 **지금** 반영해야 한다.
+   * RGB 타임아웃 경과를 **지금** 반영해야 한다.
    * 이 함수는 ap.c 의 idle 분기에서 qmkWaitActivity() **직전에** 불린다. 여기서 안 걸면
    * 다음 qmkUpdate() 까지 미뤄지는데, RGB 가 꺼져 있으면 그 "다음"이 sleep 데드라인(1시간)
    * 뒤라 인디케이터가 한 시간 켜져 있게 된다. (LED 반영이 30초 늦던 버그와 같은 계열)
@@ -128,13 +148,50 @@ bool activityIsIdle(void)
   return qmkGetInactiveMs() >= idle_timeout_ms;
 }
 
+bool activityRgbIsIdle(void)
+{
+  if (rgb_timeout_ms == 0)
+  {
+    return false;   // 안 끔 (ZMK 와 같은 동작)
+  }
+  return qmkGetInactiveMs() >= rgb_timeout_ms;
+}
+
+void activitySetRgbTimeout(uint32_t ms)
+{
+  rgb_timeout_ms = ms;
+}
+
+uint32_t activityGetRgbTimeout(void)
+{
+  return rgb_timeout_ms;
+}
+
+/*
+ * 다음에 볼 데드라인까지 남은 ms. **세 타임아웃 중 가장 가까운 것**을 봐야 한다 —
+ * 하나라도 빠뜨리면 그 시점을 놓치고 다음 데드라인까지 반영이 밀린다.
+ */
+static uint32_t next_deadline(uint32_t wait, uint32_t timeout_ms, uint32_t inactive)
+{
+  if (timeout_ms == 0 || inactive >= timeout_ms)
+  {
+    return wait;   // 비활성이거나 이미 지났다
+  }
+  uint32_t left = timeout_ms - inactive;
+  return (wait == 0 || left < wait) ? left : wait;
+}
+
 uint32_t activityGetWaitMs(void)
 {
   uint32_t inactive = qmkGetInactiveMs();
+  uint32_t wait     = 0;
 
-  if (idle_timeout_ms > 0 && inactive < idle_timeout_ms)
+  wait = next_deadline(wait, idle_timeout_ms, inactive);
+  wait = next_deadline(wait, rgb_timeout_ms,  inactive);   // RGB 는 idle 과 별개 시점이다
+
+  if (wait > 0)
   {
-    return idle_timeout_ms - inactive;
+    return wait;
   }
   if (sleep_timeout_ms == 0)
   {

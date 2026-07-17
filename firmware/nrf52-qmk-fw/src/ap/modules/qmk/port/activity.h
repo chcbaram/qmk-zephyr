@@ -40,6 +40,22 @@ activity_state_t activityGetState(void);
  */
 bool             activityIsIdle(void);
 
+/*
+ * RGB/인디케이터 소등 타임아웃 — **activity 의 idle 과 별개다**.
+ *
+ * [왜 별개인가] 처음엔 idle(30초)에 얹었는데, 그 30초는 ZMK 의 CONFIG_ZMK_IDLE_TIMEOUT 을
+ * 가져온 값이고 **ZMK 에서 그건 OLED 끄기용**이라 RGB 와 무관하다(§6.12). 우리 IDLE 이 하는
+ * 일이 RGB 소등뿐이라 우연히 굴러갔을 뿐, 두 개념은 다르다:
+ *   idle  : "사용자가 잠시 멈췄다"  — 나중에 다른 소비자가 붙을 수 있다(BLE latency 등)
+ *   RGB   : "LED 를 꺼도 될 만큼 자리를 비웠다" — 65mA 라 판단 기준이 다르다
+ *
+ * 인디케이터(Caps)도 이 타임아웃을 따른다 — QMK 의 suspend_power_down_quantum() 이 RGB 와
+ * led_suspend() 를 함께 처리하므로 분리할 수 없고, 분리할 이유도 없다.
+ */
+bool             activityRgbIsIdle(void);
+void             activitySetRgbTimeout(uint32_t ms);
+uint32_t         activityGetRgbTimeout(void);
+
 // 타임아웃(ms). 0 = 비활성. VIA 커스텀 메뉴에서 설정할 예정(Phase 5-D).
 void             activitySetIdleTimeout(uint32_t ms);
 void             activitySetSleepTimeout(uint32_t ms);
