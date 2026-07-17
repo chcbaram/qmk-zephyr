@@ -104,14 +104,22 @@ uint32_t qmkGetIdleWaitMs(void)
   uint32_t wait_ms = activityGetWaitMs();
 
 #ifdef RGB_MATRIX_ENABLE
-  // RGB 가 켜져 있으면 애니메이션 프레임을 계속 그려야 한다. activity 데드라인(수십 초)까지
-  // 자버리면 화면이 멈춘다 → 둘 중 짧은 쪽으로 깬다.
-  // RGB 자체가 mA 단위라 60fps 웨이크업(수십 µA)은 여기서 무시할 만하다.
+  /*
+   * RGB 가 켜져 있으면 애니메이션이 돌아야 한다. activity 데드라인(수십 초)까지 자버리면 멈춘다.
+   *
+   * [주의] 여기서 RGB_MATRIX_LED_FLUSH_LIMIT(16ms)를 쓰면 안 된다. 그건 **프레임 주기**지
+   * task 주기가 아니다. rgb_matrix_task() 는 상태머신이고 RENDERING 이 청크 단위라
+   * (RGB_MATRIX_LED_PROCESS_LIMIT), 한 프레임에 여러 번 불려야 한다. 16ms 로 깨우면
+   * 프레임당 ~100ms 가 걸려 눈에 띄게 끊긴다(실제로 겪음).
+   * → **task 주기로 깨운다.** 프레임 주기 제한은 rgb_task_sync() 가 알아서 건다.
+   *
+   * 전력: RGB 자체가 10mA 단위라 이 웨이크업 비용(≈1mA)은 묻힌다. RGB 를 끄면 원래대로 돌아간다.
+   */
   if (rgb_matrix_is_enabled())
   {
-    if (wait_ms == 0 || wait_ms > RGB_MATRIX_LED_FLUSH_LIMIT)
+    if (wait_ms == 0 || wait_ms > QMK_TASK_PERIOD_MS)
     {
-      wait_ms = RGB_MATRIX_LED_FLUSH_LIMIT;
+      wait_ms = QMK_TASK_PERIOD_MS;
     }
   }
 #endif
