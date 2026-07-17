@@ -187,6 +187,13 @@ static int kb_get_report(const struct device *dev,
   return 0;
 }
 
+static void (*p_kbd_led_func)(void) = NULL;
+
+void usbHidSetKbdLedFunc(void (*func)(void))
+{
+  p_kbd_led_func = func;
+}
+
 static int kb_set_report(const struct device *dev,
                          const uint8_t type, const uint8_t id, const uint16_t len,
                          const uint8_t *const buf)
@@ -200,7 +207,15 @@ static int kb_set_report(const struct device *dev,
   // boot keyboard output report = 1바이트 LED 비트맵 (NumLock/CapsLock/ScrollLock)
   if (len >= 1)
   {
+    bool changed = (kb_led_state != buf[0]);
+
     kb_led_state = buf[0];
+
+    // led_task() 가 폴링으로 집어가는데, 루프가 자고 있으면 반영이 안 된다 → 깨운다.
+    if (changed && p_kbd_led_func != NULL)
+    {
+      p_kbd_led_func();
+    }
   }
   return 0;
 }
