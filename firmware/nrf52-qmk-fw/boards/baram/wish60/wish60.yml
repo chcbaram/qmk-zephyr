@@ -1,5 +1,5 @@
-identifier: NRF52840/nrf52840
-name: NRF52840
+identifier: wish60/nrf52840
+name: wish60
 vendor: baram
 type: mcu
 arch: arm

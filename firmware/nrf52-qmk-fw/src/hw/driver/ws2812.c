@@ -6,6 +6,7 @@
 #include "cli.h"
 #include <zephyr/device.h>
 #include <zephyr/drivers/led_strip.h>
+#include <zephyr/pm/device.h>
 
 /*
  * 네오픽셀 — Zephyr 네이티브 led_strip(worldsemi,ws2812-spi) 백엔드.
@@ -16,6 +17,21 @@
  */
 
 static const struct device  *strip_dev = DEVICE_DT_GET(DT_NODELABEL(led_strip));
+
+/*
+ * 스트립이 매달린 **SPI 버스를 DTS 에서 유도한다** — 보드마다 다른 버스를 쓴다
+ * (wish60 은 spi3, wish65 는 spi3 지만 595 가 spi2 에 있다). DT_PARENT 로 잡으면
+ * 보드가 무엇을 쓰든 맞는 버스를 끈다. 예전엔 키보드 트리의 rgb_matrix_drivers.c 가
+ * DT_NODELABEL(spi3) 을 직접 잡고 있었다 — LED 배치(키보드 관심사)가 아니라 SoC
+ * 페리페럴 전력관리(hw 관심사)라 여기가 제자리다.
+ *
+ * [왜 수동으로 끄나] spi_nrfx_spim.c 는 첫 전송 때 nrfx_spim_init() 하고 그 뒤 계속
+ * ENABLE 로 남아 ~1mA 를 먹는다(실측). nRF52840 의 SPIM3 는 anomaly 195 대상이고 그
+ * workaround 가 nrfx_spim_uninit() 에서 적용되므로 uninit 이 반드시 필요하다.
+ * CONFIG_PM_DEVICE_RUNTIME(전송마다 자동 suspend)은 쓰지 않는다 — idle 이 69µA -> 652µA 로
+ * 10배 악화됐다(실측). RGB on/off 시점에만 직접 건드린다.
+ */
+static const struct device  *spi_dev   = DEVICE_DT_GET(DT_PARENT(DT_NODELABEL(led_strip)));
 static struct led_rgb        pixels[WS2812_MAX_CH];
 static bool                  is_init = false;
 
@@ -53,6 +69,37 @@ void ws2812SetColor(uint32_t ch, uint32_t color)
   pixels[ch].r = (color >> 16) & 0xFF;
   pixels[ch].g = (color >>  8) & 0xFF;
   pixels[ch].b = (color >>  0) & 0xFF;
+}
+
+void ws2812SetPower(bool enable)
+{
+  if (enable == extPowerIsEnabled())
+  {
+    return;
+  }
+
+  if (enable)
+  {
+    if (device_is_ready(spi_dev))
+    {
+      pm_device_action_run(spi_dev, PM_DEVICE_ACTION_RESUME);   // -EALREADY 는 정상
+    }
+    extPowerEnable();
+    delay(2);   // DTS startup-delay-us 후 레일 안정화. 바로 쏘면 첫 프레임이 깨진다
+  }
+  else
+  {
+    extPowerDisable();
+    if (device_is_ready(spi_dev))
+    {
+      pm_device_action_run(spi_dev, PM_DEVICE_ACTION_SUSPEND);  // SPIM uninit
+    }
+  }
+}
+
+bool ws2812IsPowered(void)
+{
+  return extPowerIsEnabled();
 }
 
 bool ws2812Refresh(void)

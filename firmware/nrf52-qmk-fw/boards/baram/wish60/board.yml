@@ -1,5 +1,5 @@
 board:
-  name: NRF52840
+  name: wish60
   vendor: baram
   socs:
     - name: nrf52840

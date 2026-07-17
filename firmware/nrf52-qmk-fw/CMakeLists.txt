@@ -22,11 +22,25 @@ if (DEBUG_CONSOLE)
 endif()
 
 
-# 빌드할 키보드 선택. 미지정 시 board 이름으로 기본값 유도.
-# 예: west build -b NRF52840/nrf52840 -- -DKEYBOARD_PATH=keyboards/baram/wish60
+# 빌드할 키보드 선택 — **board 이름에서 유도한다**.
+#
+# 키보드 한 대 = 두 트리다(§4.1): 하드웨어는 boards/baram/<board>/, 로직은
+# keyboards/baram/<board>/. 이름 규약이 그 둘을 잇는 유일한 장치다.
+#
+# [왜 고정 기본값을 두지 않나] 예전엔 wish60 으로 고정돼 있었다. 그러면 `west build -b wish65`
+# 가 **에러 없이 성공하고 wish60 의 키맵/MATRIX/USB PID 로 빌드된다** — 조용히 틀리는 게
+# 컴파일 에러보다 나쁘다. 없는 키보드는 여기서 즉시 FATAL_ERROR 로 잡는다.
 if (NOT DEFINED KEYBOARD_PATH)
-  set(KEYBOARD_PATH "keyboards/baram/wish60")
+  set(KEYBOARD_PATH "keyboards/baram/${BOARD}")
 endif()
+if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/ap/modules/qmk/${KEYBOARD_PATH}/config.h")
+  message(FATAL_ERROR
+    "키보드 트리가 없다: src/ap/modules/qmk/${KEYBOARD_PATH}\n"
+    "  board '${BOARD}' 에 대응하는 키보드가 없다. 다음 중 하나를 하라:\n"
+    "   - src/ap/modules/qmk/keyboards/baram/${BOARD}/ 를 만든다 (config.h 필수)\n"
+    "   - 또는 -DKEYBOARD_PATH=keyboards/baram/<kbd> 로 명시한다")
+endif()
+message(STATUS "keyboard: ${KEYBOARD_PATH}  (board: ${BOARD})")
 
 # QMK 코어 vendor-in 빌드 조각 (QMK_SRC_FILES / QMK_INC_DIR / compile defs 설정)
 include(src/ap/modules/qmk/CMakeLists.txt)
