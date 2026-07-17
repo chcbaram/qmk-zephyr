@@ -53,3 +53,16 @@ void    bleProfileClearAll(void);
 bool    bleProfileIsOpen(uint8_t index);
 // 해당 프로파일의 호스트가 지금 연결돼 있나.
 bool    bleProfileIsConnected(uint8_t index);
+
+
+/*
+ * TX power (dBm).
+ *
+ * Zephyr **표준** VS HCI(BT_HCI_OP_VS_WRITE_TX_POWER_LEVEL, 0xfc0e)를 쓴다 — NCS 전용 API 가
+ * 아니다. NCS SoftDevice Controller 도 이 명령을 그대로 구현하므로(hci_internal.c) 순수 Zephyr
+ * 컨트롤러로 옮겨도 동작한다. `CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL=y` 가 전제.
+ *
+ * 컨트롤러가 지원하지 않는 값은 **가장 가까운 지원값으로 클램프**된다(요청값과 다를 수 있다).
+ */
+bool   bleSetTxPower(int8_t dbm);
+int8_t bleGetTxPower(void);
