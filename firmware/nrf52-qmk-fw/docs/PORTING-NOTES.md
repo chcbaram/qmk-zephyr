@@ -732,6 +732,61 @@ SPI 하나 잡으려고 켰다가 **키가 아예 안 먹었다.** `input_kbd_ma
 
 **하드웨어 먼저 검증**: QMK 를 얹기 전에 `ws2812 color/off` CLI 로 레일·색순서·개수를 확인한다. 여기서 틀리면 DTS(`color-mapping`, `chain-length`, MOSI 핀) 문제지 QMK 문제가 아니다.
 
+### 6.9 RGB/인디케이터 소등 — 조건이 둘이므로 한 곳에서 합친다
+
+**끄는 이유가 두 개다**: 호스트 PC 가 잠(USB SUSPEND) / 사용자가 자리를 뜸(activity IDLE).
+무선에선 호스트가 SUSPEND 를 보내주지 않으므로 **IDLE 이 유일한 방어선**이다 — 없으면 RGB 가
+켜진 채 mA 단위로 배터리를 태운다(idle 60µA 와 비교가 안 된다).
+
+**각자 부르면 안 된다.** 둘이 서로를 모른 채 `suspend_power_down_quantum()` /
+`suspend_wakeup_init_quantum()` 을 부르면, 한쪽 조건이 풀릴 때 다른 쪽 조건이 살아 있어도
+켜버린다(PC 가 깨어났지만 여전히 idle → RGB 점등). `qmkSuspendUpdate()` 하나로 OR 해서
+**전이할 때만** 부른다. QMK 의 `suspend_power_down_quantum()` 이 RGB 와 인디케이터
+(`led_suspend()`)를 다 처리하므로 우리가 따로 할 일은 없다.
+
+**함정 1 — `activityGetState()` 는 활성 구간에서 낡는다.** `activityUpdate()` 는 ap.c 의 idle
+분기에서만 불린다. IDLE 상태에서 키를 누르면 루프가 활성 분기로 빠지고 `activityUpdate()` 가
+영영 안 불려 state 는 IDLE 로 굳는다 → **RGB 가 안 돌아온다**. 계산 전용 `activityIsIdle()`
+(inactive ms 로 직접 판정)을 쓸 것.
+
+**함정 2 — IDLE 진입은 `activityUpdate()` 안에서 반영해야 한다.** 그 함수는
+`qmkWaitActivity()` **직전에** 불린다. 다음 `qmkUpdate()` 로 미루면 그 "다음"이 sleep
+데드라인(1시간) 뒤일 수 있다(RGB 가 꺼져 있으면 2ms 웨이크가 없으므로). §2.6 계열.
+
+**함정 3 — `rgb_matrix_is_enabled()` 는 "지금 켜져 있나"가 아니다.** 사용자 설정일 뿐이라
+서스펜드로 검게 표시 중이어도 true 다. 이 표현식을 그대로 쓰면 두 곳이 동시에 깨진다:
+
+- `qmkGetIdleWaitMs()` — 소등 뒤에도 2ms 마다 깨어나 ~1mA 를 계속 먹는다.
+  USB 서스펜드 전류 상한(2.5mA)에도 걸린다.
+- `rgb_matrix_drivers.c` 의 flush — **ext-power 레일이 안 내려간다**. 네오픽셀은 검정을
+  표시해도 컨트롤러가 개당 ~0.4mA 라 16개면 **실측 7.12mA** — idle 60µA 의 100배다.
+  "LED 는 꺼졌는데 전류가 mA 단위"면 이거다.
+
+**함정 4 — flush 안에서는 `rgb_matrix_get_suspend_state()` 도 못 쓴다.**
+
+```c
+void rgb_matrix_set_suspend_state(bool state) {
+    if (state && !suspend_state) {
+        rgb_task_render(0);
+        rgb_task_flush(0);      // <- 우리 flush 가 여기서 불린다
+    }
+    suspend_state = state;      // <- 플래그는 그 **뒤에** 세워진다
+}
+```
+
+검은 프레임을 쏘는 그 flush 안에서 `get_suspend_state()` 는 아직 false 다. 그리고 이게
+검정을 쏘는 **유일한** 기회다(그 뒤 루프는 잔다 — 함정 3 을 고쳤으므로 2ms 웨이크도 없다).
+그래서 `qmkIsSuspended()`(우리 arbiter 플래그)를 쓴다. `qmkSuspendUpdate()` 가
+`suspend_power_down_quantum()` **전에** 플래그를 세우는 것이 그 계약이다 — 순서를 바꾸지 말 것.
+
+**순서**: `qmkUpdate()` 에서 `qmkSuspendUpdate()` 는 `output_select_task()` **뒤**여야 한다.
+`suspend_wakeup_init_quantum()` → `led_wakeup()` → `led_set(host_keyboard_leds())` 가 활성
+host_driver 를 타기 때문이다.
+
+**인디케이터도 같이 끈다**(IDLE 에서 Caps LED 소등). "상시 점등 LED 없음" 원칙과 같은 이유다 —
+인디케이터 LED 는 mA 단위라 한 시간이면 idle 60µA 가 무의미해진다. 키를 건드리면
+`led_wakeup()` 이 호스트 LED 상태를 그대로 복구하므로 정보가 사라지지는 않는다.
+
 ### 6.5 deep sleep (System OFF) — 27.7µA, 여기가 바닥이다
 
 `sys_poweroff()` = nRF52 System OFF. **깨어남 = 리셋 부팅**(RAM 리텐션도 꺼진다) → 타임아웃 1시간.

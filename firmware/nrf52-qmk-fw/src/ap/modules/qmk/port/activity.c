@@ -82,19 +82,35 @@ void activityUpdate(void)
     activityEnterSleep();   // 돌아오지 않음
   }
 
-  if (idle_timeout_ms > 0 && inactive >= idle_timeout_ms)
+  if (activityIsIdle())
   {
     if (state != ACTIVITY_IDLE)
     {
       state = ACTIVITY_IDLE;
       logPrintf("[  ] activity: IDLE\n");
-      // TODO(Phase 8): RGB 소등 (ZMK 의 RGB_UNDERGLOW_AUTO_OFF_IDLE)
     }
   }
   else
   {
     state = ACTIVITY_ACTIVE;
   }
+
+  /*
+   * IDLE 진입을 RGB/인디케이터에 **지금** 반영해야 한다.
+   * 이 함수는 ap.c 의 idle 분기에서 qmkWaitActivity() **직전에** 불린다. 여기서 안 걸면
+   * 다음 qmkUpdate() 까지 미뤄지는데, RGB 가 꺼져 있으면 그 "다음"이 sleep 데드라인(1시간)
+   * 뒤라 인디케이터가 한 시간 켜져 있게 된다. (LED 반영이 30초 늦던 버그와 같은 계열)
+   */
+  qmkSuspendUpdate();
+}
+
+bool activityIsIdle(void)
+{
+  if (idle_timeout_ms == 0)
+  {
+    return false;
+  }
+  return qmkGetInactiveMs() >= idle_timeout_ms;
 }
 
 uint32_t activityGetWaitMs(void)

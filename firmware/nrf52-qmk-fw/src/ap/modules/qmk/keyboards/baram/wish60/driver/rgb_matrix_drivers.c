@@ -2,6 +2,7 @@
 #include "rgb_matrix.h"
 #include "ws2812.h"
 #include "ext_power.h"
+#include "qmk/qmk.h"
 #include <zephyr/pm/device.h>
 #include <zephyr/device.h>
 
@@ -64,7 +65,18 @@ static void rgb_matrix_spi_set(bool on)
  */
 static void rgb_matrix_ws2812_flush(void)
 {
-  bool want_on = rgb_matrix_is_enabled();
+  /*
+   * [주의] rgb_matrix_is_enabled() 만 보면 안 된다. 그건 **사용자 설정**이지 지금 켜져 있는지가
+   * 아니다. 서스펜드(호스트 PC 잠 / activity IDLE)로 검게 표시해도 true 라, 레일이 켜진 채
+   * 남아 네오픽셀 대기 전류만 7mA 를 먹는다(실측 7.12mA — idle 60µA 의 100배).
+   *
+   * rgb_matrix_get_suspend_state() 도 여기선 못 쓴다. rgb_matrix_set_suspend_state() 가
+   *     rgb_task_render(0); rgb_task_flush(0);   <- 우리가 지금 여기 있다
+   *     suspend_state = state;                   <- 플래그는 그 뒤에 세워진다
+   * 순서라, 검은 프레임을 쏘는 이 flush 안에서는 아직 false 다. 그리고 이게 검정을 쏘는
+   * **유일한** 기회다(그 뒤 루프는 잔다). -> qmkIsSuspended() 를 쓴다.
+   */
+  bool want_on = rgb_matrix_is_enabled() && !qmkIsSuspended();
 
   if (want_on && !extPowerIsEnabled())
   {

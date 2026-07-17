@@ -31,6 +31,15 @@ uint32_t         activityGetWaitMs(void);
 
 activity_state_t activityGetState(void);
 
+/*
+ * 지금 idle 인가 — 상태머신을 갱신하지 않고 계산만 한다.
+ *
+ * activityGetState() 를 쓰면 안 되는 자리가 있다. activityUpdate() 는 메인 루프의 **idle
+ * 분기에서만** 불리므로, 키가 눌려 활성 분기로 빠지면 state 가 IDLE 인 채로 낡는다.
+ * RGB 복귀처럼 활성 구간에서도 판정해야 하는 곳은 이걸 써야 한다.
+ */
+bool             activityIsIdle(void);
+
 // 타임아웃(ms). 0 = 비활성. VIA 커스텀 메뉴에서 설정할 예정(Phase 5-D).
 void             activitySetIdleTimeout(uint32_t ms);
 void             activitySetSleepTimeout(uint32_t ms);

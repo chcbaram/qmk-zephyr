@@ -44,6 +44,19 @@ uint32_t qmkGetInactiveMs(void);
  */
 uint32_t qmkGetIdleWaitMs(void);
 
+// RGB/인디케이터 소등 조건(USB 서스펜드 | activity IDLE)을 합쳐 반영한다. 전이할 때만 동작.
+void qmkSuspendUpdate(void);
+
+/*
+ * 지금 소등 상태인가 (USB 서스펜드 | activity IDLE).
+ *
+ * RGB 드라이버가 "레일을 내려도 되나"를 판정할 때 **rgb_matrix_get_suspend_state() 를 쓰면
+ * 안 된다** — rgb_matrix_set_suspend_state() 는 검은 프레임을 flush 한 **뒤에** 내부 플래그를
+ * 세우므로, 정작 그 flush 안에서는 아직 false 다. 우리 플래그는 suspend_power_down_quantum()
+ * 을 부르기 전에 세워지므로 flush 시점에 이미 참이다.
+ */
+bool qmkIsSuspended(void);
+
 /*
  * 잠들어 있는 메인 루프를 깨운다.
  *
