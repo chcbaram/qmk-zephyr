@@ -128,8 +128,26 @@
 		no-ghostkey-check;         /* 다이오드(col2row) 있으므로 고스팅 검사 불필요 */
 
 		/*
+		 * [595 에는 필수] 없으면 부팅 시 바로 죽는다:
+		 *     <err> input_gpio_kbd_matrix: Pin 0 configuration failed: -134  (-ENOTSUP)
+		 *
+		 * 이 드라이버의 **기본 동작은 선택 안 된 컬럼을 GPIO_INPUT(하이임피던스)로 두는 것**이다.
+		 * 595 는 출력 전용이라(읽기 회로가 없다) 그 요청을 -ENOTSUP 으로 거부한다.
+		 * 이 속성을 주면 컬럼을 항상 출력으로만 다룬다:
+		 *   init  : GPIO_OUTPUT_INACTIVE
+		 *   구동  : gpio_pin_set_dt()  (재설정 없음)
+		 * 다이오드(col2row)가 있으므로 비활성 컬럼을 LOW 로 구동해도 전기적으로 안전하다.
+		 *
+		 * [보너스: direct_write] 이 속성 + 컬럼이 coherent(같은 포트·같은 플래그·연속 핀)면
+		 * 드라이버가 gpio_port_set_masked() 한 번으로 컬럼 전체를 쓴다. 우리 <&shift_reg 0..15>
+		 * 가 그 조건을 만족하므로 **스캔 스텝당 SPI 1회**다(핀별 경로였다면 2회 — 켤 핀과 끌 핀).
+		 * 595 의 "부분 갱신 불가"(전체를 매번 쏜다)와도 궁합이 맞는다.
+		 */
+		col-drive-inactive;
+
+		/*
 		 * [주의] wish60(2ms)보다 느리게 잡았다. 컬럼 구동마다 **SPI 트랜잭션**이 일어나기
-		 * 때문이다 — 16컬럼 × 500Hz = 8k SPI/초. wish60 은 GPIO 토글이라 공짜였다.
+		 * 때문이다 — 16컬럼 × 250Hz = 4k SPI/초. wish60 은 GPIO 토글이라 공짜였다.
 		 * 실측 후 조정할 것(§4.2 의 "SPI 비용" 항목). QMK 처리 주기와는 별개 노브다.
 		 */
 		poll-period-ms   = <4>;
