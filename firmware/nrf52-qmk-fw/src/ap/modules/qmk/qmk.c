@@ -72,7 +72,25 @@ static bool suspended     = false;
 static void qmk_usb_suspend_cb(bool s)
 {
   logPrintf("[  ] usb %s\n", s ? "SUSPEND" : "RESUME");
+
   usb_suspended = s;   // 실제 반영은 qmkSuspendUpdate() 가 한다 (조건이 둘이라 합쳐야 한다)
+
+  /*
+   * [필수] 루프를 깨워야 한다 — 이 콜백은 USBD 메시지 스레드에서 오고, 반영은 메인 루프의
+   * qmkSuspendUpdate() 가 한다. 자고 있으면 반영이 안 된다.
+   *
+   * 특히 RESUME 이 그렇다. 서스펜드에 들어가면 qmkGetIdleWaitMs() 가 RGB 의 2ms 웨이크를
+   * **일부러 끄므로**(안 그러면 소등 상태로 1mA 를 계속 먹는다 — §6.9 함정 3) 루프는 activity
+   * 데드라인(30초)까지 잔다. 그때 RESUME 이 와도 깨우지 않으면 **RGB 가 꺼진 채 남고 아무 키나
+   * 눌러야 돌아온다**(배터리 + RGB 켠 상태에서 USB 를 꽂으면 재현 — 실제로 겪음).
+   *
+   * USB 를 꽂으면 usbd 는 **SUSPEND 를 먼저** 보낸다(호스트가 버스를 잡기 전이라 idle), 그 뒤
+   * 버스 리셋 -> RESUME 이다. 즉 이 경로는 PC 가 잘 때만이 아니라 **연결할 때마다** 지나간다.
+   *
+   * last_activity_ms 는 건드리지 않는다(qmkWake 의 계약) — USB 연결은 사용자 입력이 아니므로
+   * idle/sleep 타이머를 리셋하면 안 된다.
+   */
+  qmkWake();
 }
 
 /*
