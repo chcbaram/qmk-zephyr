@@ -10,6 +10,7 @@
 void viaPortInit(void)
 {
   power_cfg_init();
+  ble_cfg_init();
 }
 
 // QMK via.c 의 weak 훅 오버라이드. 채널만 보고 각 기능으로 넘긴다.

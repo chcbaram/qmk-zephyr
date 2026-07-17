@@ -7,6 +7,9 @@
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/hci_vs.h>
+#include <zephyr/sys/byteorder.h>   // sys_cpu_to_le16
 #include <bluetooth/services/hids.h>
 #include <zephyr/bluetooth/services/bas.h>
 #include "battery.h"
@@ -382,6 +385,90 @@ static void ble_advertising_update(void)
   adv_running = want_adv;
 }
 
+/*
+ * TX power — Zephyr 표준 VS HCI 로 설정한다(§ble.h 주석 참고).
+ * 핸들 종류마다 따로 걸어야 한다: 광고(ADV)와 **연결(CONN)은 별개**다.
+ * 그래서 새 연결이 생길 때마다 connected() 에서 다시 적용한다.
+ */
+static int8_t tx_power_dbm = 0;
+
+static int ble_tx_power_apply(uint8_t handle_type, uint16_t handle, int8_t dbm)
+{
+  struct bt_hci_cp_vs_write_tx_power_level *cp;
+  struct bt_hci_rp_vs_write_tx_power_level *rp;
+  struct net_buf                           *buf;
+  struct net_buf                           *rsp = NULL;
+  int                                       err;
+
+  buf = bt_hci_cmd_alloc(K_FOREVER);
+  if (buf == NULL)
+  {
+    return -ENOBUFS;
+  }
+
+  cp                 = net_buf_add(buf, sizeof(*cp));
+  cp->handle         = sys_cpu_to_le16(handle);
+  cp->handle_type    = handle_type;
+  cp->tx_power_level = dbm;
+
+  err = bt_hci_cmd_send_sync(BT_HCI_OP_VS_WRITE_TX_POWER_LEVEL, buf, &rsp);
+  if (err)
+  {
+    return err;
+  }
+
+  // 컨트롤러가 실제로 고른 값. 요청값이 미지원이면 가까운 값으로 클램프된다.
+  rp = (void *)rsp->data;
+  logPrintf("[  ] ble tx power: 요청 %ddBm -> 적용 %ddBm (type %d)\n",
+            dbm, rp->selected_tx_power, handle_type);
+  net_buf_unref(rsp);
+
+  return 0;
+}
+
+// 새 연결에 현재 TX power 를 건다(연결 핸들은 광고와 별개라 매번 필요).
+static void ble_tx_power_apply_conn(struct bt_conn *conn)
+{
+  uint16_t handle;
+
+  if (tx_power_dbm == 0)
+  {
+    return;   // 0dBm = 컨트롤러 기본값 → 굳이 명령을 보내지 않는다
+  }
+  if (bt_hci_get_conn_handle(conn, &handle) == 0)
+  {
+    ble_tx_power_apply(BT_HCI_VS_LL_HANDLE_TYPE_CONN, handle, tx_power_dbm);
+  }
+}
+
+bool bleSetTxPower(int8_t dbm)
+{
+  tx_power_dbm = dbm;
+
+  // 광고에 적용. 연결에는 각 conn 마다 따로 걸어야 한다.
+  if (ble_tx_power_apply(BT_HCI_VS_LL_HANDLE_TYPE_ADV, 0, dbm) != 0)
+  {
+    return false;
+  }
+
+  for (int i = 0; i < BLE_PROFILE_COUNT; i++)
+  {
+    struct bt_conn *conn = ble_profile_conn(i);
+
+    if (conn != NULL)
+    {
+      ble_tx_power_apply_conn(conn);
+      bt_conn_unref(conn);
+    }
+  }
+  return true;
+}
+
+int8_t bleGetTxPower(void)
+{
+  return tx_power_dbm;
+}
+
 static void connected(struct bt_conn *conn, uint8_t err)
 {
   char addr[BT_ADDR_LE_STR_LEN];
@@ -402,6 +489,8 @@ static void connected(struct bt_conn *conn, uint8_t err)
   {
     logPrintf("[E_] bt_hids_connected\n");
   }
+
+  ble_tx_power_apply_conn(conn);   // 연결 핸들은 광고와 별개다
 
   // 여러 호스트가 동시에 붙을 수 있다. conn 을 우리가 붙들지 않고(ref 안 함) 필요할 때
   // 활성 프로파일 주소로 조회한다 -> 프로파일 전환이 곧 전송 대상 전환이 된다.
