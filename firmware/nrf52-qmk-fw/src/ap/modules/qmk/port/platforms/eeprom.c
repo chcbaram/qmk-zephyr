@@ -71,6 +71,11 @@ void eeprom_update(void)
   }
 }
 
+bool eeprom_is_dirty(void)
+{
+  return dirty;
+}
+
 void eeprom_task(void)
 {
   eeprom_update();

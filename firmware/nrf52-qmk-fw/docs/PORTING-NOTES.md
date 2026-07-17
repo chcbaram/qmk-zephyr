@@ -148,7 +148,14 @@ nRF52840 엔 내부 EEPROM 이 없다. `zephyr,emu-eeprom`(플래시 에뮬, DTS
 **전력 3-레버**: settle-flush(program↓) / `partition-erase`(erase 지연·통합↓) / `rambuf`(read↓).
 program/erase 가 EEPROM 최대 에너지원이므로 앞의 둘이 핵심.
 
-> TODO(Phase 6): `eeprom_task()` 폴링을 **sleep 진입 훅**으로 옮길 것. 지금 `k_work` 로 다른 스레드에
+**함정 — 저전력 루프가 EEPROM 쓰기를 삼킨다.**
+settle-flush 판정은 `eeprom_task()` 가 하는데 그건 메인 루프가 부른다. 루프가 idle 로 오래 자면
+**flush 도 같이 멈춘다** → VIA 저장/키맵 편집 직후 전원이 꺼지면 유실된다.
+실제로 겪었다: RGB 를 끄고 전원을 껐다 켜니 다시 켜져 있었다(최대 idle 타임아웃 30초의 창).
+→ `eeprom_is_dirty()` 를 노출하고, `qmkGetIdleWaitMs()` 가 dirty 인 동안엔 20ms 이상 자지 않는다.
+   `qmkWake()`(VIA 명령 후 1회 깨움)만으론 부족하다 — 깨어난 시점엔 아직 100ms 가 안 지났다.
+
+> TODO: `eeprom_task()` 폴링을 **sleep 진입 훅**으로 옮기는 방안. 지금 `k_work` 로 다른 스레드에
 > 빼면 flush 와 `eeprom_mark` 간 `eeprom_buf`/dirty 범위 **경쟁 조건**이 생기므로 락 또는 동일 컨텍스트 필수.
 
 ### 2.10 BLE 프로파일 5개 (`port/ble.c`) — ZMK 방식

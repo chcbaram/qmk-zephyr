@@ -2,6 +2,9 @@
 #include "log.h"   // logPrintf (콘솔 비활성 빌드에선 no-op)
 #include "host.h"
 #include "eeprom.h"
+
+// settle-flush(100ms) 가 확실히 돌도록 그보다 여유 있게 깨운다.
+#define EEPROM_FLUSH_WAIT_MS   20
 #include "via_hid.h"
 #include "via_port.h"
 #include "port/activity.h"
@@ -102,6 +105,20 @@ bool qmkInit(void)
 uint32_t qmkGetIdleWaitMs(void)
 {
   uint32_t wait_ms = activityGetWaitMs();
+
+  /*
+   * EEPROM 에 아직 안 쓴 변경이 있으면 오래 자면 안 된다.
+   * settle-flush 는 "마지막 쓰기 후 EE_FLUSH_DELAY_MS 조용하면 flush" 인데, 그 판정을
+   * eeprom_task() 가 한다 → 루프가 자면 flush 도 멈춘다. VIA 저장 직후 루프가 수십 초
+   * 블록해버려 그 사이 전원이 꺼지면 유실된다(실제로 겪음).
+   */
+  if (eeprom_is_dirty())
+  {
+    if (wait_ms == 0 || wait_ms > EEPROM_FLUSH_WAIT_MS)
+    {
+      wait_ms = EEPROM_FLUSH_WAIT_MS;
+    }
+  }
 
 #ifdef RGB_MATRIX_ENABLE
   /*
