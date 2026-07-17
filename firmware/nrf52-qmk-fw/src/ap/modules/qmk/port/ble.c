@@ -1,4 +1,6 @@
 #include "ble.h"
+#include <zephyr/sys/crc.h>
+#include <string.h>
 #include "hw_def.h"
 #include "log.h"   // logPrintf (콘솔 비활성 빌드에선 no-op)
 
@@ -133,9 +135,70 @@ static const struct bt_data ad[] = {
                 BT_UUID_16_ENCODE(BT_UUID_BAS_VAL)),
 };
 
-static const struct bt_data sd[] = {
-  BT_DATA(BT_DATA_NAME_COMPLETE, KBD_NAME, sizeof(KBD_NAME) - 1),
+/*
+ * 광고 이름 = KBD_NAME + "-" + 주소 유래 16비트 해시 (예: "WISH65-3F7A").
+ *
+ * [왜] 같은 모델 보드를 여럿 쓰면 호스트의 블루투스 목록에서 **이름이 같아 구분이 안 된다**.
+ * 본딩은 주소 기준이라 동작엔 문제가 없지만 사람이 못 고른다.
+ *
+ * [왜 16비트인가] 해시를 써도 **출력 공간이 충돌 확률을 정한다** — 8비트 해시는 256가지라
+ * 주소에서 한 바이트 떼는 것과 확률이 같다(FICR 주소는 이미 랜덤이라 해시의 분산 이점도 없다).
+ * 같은 호스트 근처의 보드 수 기준 충돌 확률: 8비트는 5개에 3.9% / 10개에 16%, 16비트는
+ * 10개에 0.07%. 비용은 이름 2글자뿐이고, 나중에 늘리면 **이름이 바뀌어 전 호스트 재페어링**이
+ * 필요하므로 지금 넉넉히 잡는다.
+ *
+ * [const 가 아니다] 예전엔 컴파일타임 문자열이었다. 런타임 이름을 쓰려면 버퍼여야 한다 —
+ * bt_set_name() 만 부르면 GATT Device Name 특성만 바뀌고 **광고엔 옛 이름이 그대로 나간다**.
+ * 스캔 목록에서 구분하려면 이쪽도 같이 맞춰야 한다.
+ *
+ * 초기값은 접미사 없는 KBD_NAME — 아래 이름 생성이 실패해도 광고는 정상 동작한다.
+ */
+static char name_buf[CONFIG_BT_DEVICE_NAME_MAX] = KBD_NAME;
+
+static struct bt_data sd[] = {
+  BT_DATA(BT_DATA_NAME_COMPLETE, name_buf, sizeof(KBD_NAME) - 1),
 };
+
+/*
+ * identity address 로 이름을 만든다. bt_enable() **뒤**여야 주소를 읽을 수 있다.
+ *
+ * 주소는 nRF SDC 가 FICR DEVICEADDR(칩 공장 고유값)에서 만든다 → **보드마다 고정**이다.
+ * 그래서 bt_set_name() 의 settings 기록도 최초 1회뿐이다(값이 같으면 안 쓴다).
+ */
+static void ble_name_init(void)
+{
+  bt_addr_le_t addr;
+  size_t       count = 1;
+  int          len;
+
+  bt_id_get(&addr, &count);
+  if (count == 0)
+  {
+    logPrintf("[E_] bt_id_get — 이름 접미사 없이 진행\n");
+    return;
+  }
+
+  // CRC16 — 6바이트 전부를 쓴다. 주소에 구조가 있어도 고르게 퍼진다.
+  uint16_t h = crc16_ccitt(0, addr.a.val, sizeof(addr.a.val));
+
+  len = snprintf(name_buf, sizeof(name_buf), "%s-%04X", KBD_NAME, h);
+  if (len < 0 || len >= (int)sizeof(name_buf))
+  {
+    // 잘렸다 — 접미사가 깨진 이름은 없느니만 못하다. 원래 이름으로 되돌린다.
+    strncpy(name_buf, KBD_NAME, sizeof(name_buf) - 1);
+    name_buf[sizeof(name_buf) - 1] = '\0';
+    logPrintf("[E_] 이름이 너무 길다(%s) — 접미사 생략\n", KBD_NAME);
+  }
+
+  sd[0].data_len = strlen(name_buf);   // data 포인터는 name_buf 그대로
+
+  // GATT Device Name 특성도 같은 값으로. 안 맞추면 광고와 특성이 다른 이름을 말한다.
+  int err = bt_set_name(name_buf);
+  if (err)
+  {
+    logPrintf("[E_] bt_set_name %s (%d)\n", name_buf, err);
+  }
+}
 
 // clang-format off
 static const uint8_t report_map[] = {
@@ -689,21 +752,15 @@ bool bleInit(void)
   }
 
   /*
-   * BLE 이름 = 키보드 config.h 의 KBD_NAME (USB 제품명과 같은 출처).
+   * BLE 이름 = 키보드 config.h 의 KBD_NAME + 주소 유래 해시 (USB 제품명과 같은 출처).
    *
    * prj.conf 는 **모든 보드가 공유**하므로 거기 CONFIG_BT_DEVICE_NAME 으로 키보드 이름을
-   * 박으면 새 키보드가 남의 이름으로 광고된다(실제로 전부 "WISH60" 이었다). 광고 데이터만
-   * 고치는 것으로는 부족하다 — GATT 의 Device Name 특성이 여전히 옛 이름을 반환해 거짓말이
-   * 된다. bt_set_name() 이 둘 다 맞춘다.
+   * 박으면 새 키보드가 남의 이름으로 광고된다(실제로 전부 "WISH60" 이었다).
    *
    * settings_load() **뒤**여야 한다. BT_SETTINGS 는 이름도 "bt/name" 으로 저장/복원하므로,
    * 앞에서 부르면 옛 이름이 우리 값을 덮는다. (값이 같으면 flash 쓰기도 없다)
    */
-  err = bt_set_name(KBD_NAME);
-  if (err)
-  {
-    logPrintf("[E_] bt_set_name %s (%d)\n", KBD_NAME, err);
-  }
+  ble_name_init();
 
   is_init = true;
   ble_advertising_update();
@@ -712,7 +769,7 @@ bool bleInit(void)
   cliAdd("ble", cliBle);
 #endif
 
-  logPrintf("[OK] bleInit() profile %d/%d %s\n", active_profile, BLE_PROFILE_COUNT,
+  logPrintf("[OK] bleInit() %s profile %d/%d %s\n", name_buf, active_profile, BLE_PROFILE_COUNT,
             bleProfileIsOpen(active_profile) ? "(open)" : "(bonded)");
   return true;
 }
