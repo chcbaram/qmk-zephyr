@@ -242,6 +242,33 @@
   };
 };
 
+/*
+ * 배터리 연료게이지 — MAX17048 (i2c1 @0x36). **검증용으로 활성화**한다.
+ *
+ * wish60 회로엔 MAX17048 이 실장돼 있다(§6.3). 지금까지는 VDDH ADC 를 썼지만, 연료게이지가
+ * 전압 곡선보다 SOC 가 정확하고 칩은 어차피 대기 전류(~25µA)를 먹고 있으니 켜는 게 낫다.
+ *
+ * driver/battery.c 가 DT_HAS_COMPAT_STATUS_OKAY(maxim_max17048) 로 이 노드를 감지해 백엔드를
+ * **자동 전환**한다(VDDH ADC -> 연료게이지). Kconfig(FUEL_GAUGE/MAX17048/I2C)는 defconfig 에.
+ *
+ * [핀 미검증] SDA P0.28 / SCL P0.02 는 zmk-wish60 정의에서 가져왔다 — 회로도로 직접 확인하지
+ * 못했다. zmk-wish60 은 실제 동작하던 정의라 신뢰도는 높지만, 안 잡히면 여기부터 의심할 것.
+ * ZMK compatible(zmk,maxim-max17048) 이 아니라 Zephyr 네이티브(maxim,max17048)를 쓴다.
+ */
+&i2c1 {
+	status = "okay";
+	compatible = "nordic,nrf-twi";
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-1 = <&i2c1_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	fuel_gauge: max17048@36 {
+		compatible = "maxim,max17048";
+		status = "okay";
+		reg = <0x36>;
+	};
+};
+
 zephyr_udc0: &usbd {
 	compatible = "nordic,nrf-usbd";
 	status = "okay";

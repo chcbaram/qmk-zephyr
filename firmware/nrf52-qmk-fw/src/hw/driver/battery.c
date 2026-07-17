@@ -170,7 +170,18 @@ bool batteryUpdate(void)
       return false;
     }
     bat_mv  = (uint16_t)(vals[0].voltage / 1000);   // µV -> mV
-    bat_pct = (uint8_t)vals[1].relative_state_of_charge;
+
+    /*
+     * SOC 를 0~100 으로 클램프한다 — **MAX17048 은 100 을 넘겨서 준다**(실측 122%, 125%).
+     * 칩의 ModelGauge 알고리즘은 셀 전압이 모델의 만충 전압보다 높으면(충전 중/USB 연결/
+     * 전원 켠 직후 미학습) 100 을 초과한 값을 낸다 — 데이터시트가 SOC 를 순간 100 초과로
+     * 허용한다. 버그가 아니라 정상 동작이다. 하지만:
+     *   - BLE BAS 는 0~100 만 유효하다(초과값은 스펙 위반).
+     *   - 사용자에게 122% 는 무의미하다.
+     * 그래서 여기서 자른다. (전압은 그대로 둔다 — 4068mV 는 실제 값이라 참고가 된다)
+     */
+    uint16_t soc = vals[1].relative_state_of_charge;
+    bat_pct = (soc > 100) ? 100 : (uint8_t)soc;
   }
 #else
   {
