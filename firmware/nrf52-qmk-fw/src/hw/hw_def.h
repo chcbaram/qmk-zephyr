@@ -20,6 +20,12 @@
 #define _HW_DEF_RTOS_THREAD_MEM_CLI           (6*1024)
 #define _HW_DEF_RTOS_THREAD_MEM_UART          (2*1024)
 
+// USB HID 전송 스레드 — hid_device_submit_report() 가 **호스트를 기다리며 블록**하기 때문에
+// 필요하다(자세한 이유는 driver/usb/usb_hid/usb_hid.c 의 usb_tx_thread 주석).
+// 하는 일이 msgq 대기 + submit 뿐이라 스택은 작아도 된다.
+#define _HW_DEF_RTOS_THREAD_PRI_USB_TX        5
+#define _HW_DEF_RTOS_THREAD_MEM_USB_TX        (1024)
+
 
 
 #define _USE_HW_QSPI

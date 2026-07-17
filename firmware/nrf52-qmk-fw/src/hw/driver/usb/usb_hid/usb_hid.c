@@ -152,9 +152,102 @@ static void (*via_receive_cb)(uint8_t *data, uint8_t length);
 // hid_device_submit_report() 는 report 버퍼가 정렬돼야 하고, input_report_done
 // 콜백이 없으면 동기(전송 완료까지 블록)로 처리된다. QMK 리포트를 정렬 버퍼로
 // 복사해 전송한다. (동기 전송이라 단일 정적 버퍼로 충분)
+// [소유권] 이 버퍼들은 **usb_tx_thread 만** 만진다. Zephyr 가 전송 중 이 메모리를 참조로
+// 읽으므로(hid_buf_alloc_ext) 다른 스레드가 덮어쓰면 DMA 중인 데이터가 깨진다.
+// __aligned(4): hid_dev_submit_report() 가 IS_ALIGNED(report, sizeof(void*)) 를 assert 한다.
 static uint8_t __aligned(4) kbd_tx_buf[KB_REPORT_COUNT];
 static uint8_t __aligned(4) exk_tx_buf[8];
 static uint8_t __aligned(4) via_tx_buf[32];
+
+/*
+ * USB HID 전송 스레드.
+ *
+ * [왜 스레드가 필요한가] Zephyr 의 hid_device_submit_report() 는 input_report_done 콜백을
+ * 등록하지 않으면 **호스트가 리포트를 가져갈 때까지 K_FOREVER 로 블록**한다:
+ *
+ *     // zephyr/subsys/usb/device_next/class/usbd_hid.c
+ *     if (ops->input_report_done == NULL) {
+ *         k_sem_take(&ddata->in_sem, K_FOREVER);
+ *     }
+ *
+ * 이걸 QMK 메인 루프에서 부르면 **키보드 전체가 호스트를 기다리며 선다** — 매트릭스 처리,
+ * 디바운스 카운트다운, 다음 키 감지가 전부 밀린다. 평상시엔 폴링 1ms 라 짧지만 호스트가
+ * 늦으면 그만큼 통째로 멈춘다("가끔 멈칫" 의 정체. BLE 는 bt_gatt_notify 가 논블로킹이라
+ * 같은 증상이 없었고, 그 비대칭이 단서였다).
+ *
+ * [왜 input_report_done 콜백 대신 스레드인가] 콜백을 달면 비동기가 되지만 **버퍼 수명을
+ * 우리가 책임져야 한다** — Zephyr 는 위 버퍼를 참조로 큐잉하므로 전송이 끝나기 전에
+ * 덮어쓰면 깨진다. msgq 는 값을 복사하므로 그 문제가 아예 없다. Zephyr 가 기본을 동기로
+ * 둔 이유도 이 버퍼 수명이다.
+ *
+ * 호스트가 멈춰도 **이 스레드만 막히고 키보드는 계속 돈다.** 큐가 차면 버린다 — 호스트가
+ * 안 듣는데 쌓아둘 이유가 없고, 쌓다가 메인 루프를 막으면 원래 문제로 되돌아간다.
+ */
+enum
+{
+  USB_TX_KBD = 0,
+  USB_TX_EXK,
+  USB_TX_VIA,
+};
+
+struct usb_tx_item
+{
+  uint8_t dev;
+  uint8_t len;
+  uint8_t data[32];   // VIA(32B)가 최대. kbd/exk 는 이보다 작다
+};
+
+K_MSGQ_DEFINE(usb_tx_q, sizeof(struct usb_tx_item), 8, 4);
+
+static void usbTxThread(void *p1, void *p2, void *p3)
+{
+  struct usb_tx_item item;
+
+  while (1)
+  {
+    k_msgq_get(&usb_tx_q, &item, K_FOREVER);
+
+    switch (item.dev)
+    {
+      case USB_TX_KBD:
+        memcpy(kbd_tx_buf, item.data, item.len);
+        hid_device_submit_report(hid_kbd_dev, item.len, kbd_tx_buf);   // 여기서 블록돼도 된다
+        break;
+
+      case USB_TX_EXK:
+        memcpy(exk_tx_buf, item.data, item.len);
+        hid_device_submit_report(hid_exk_dev, item.len, exk_tx_buf);
+        break;
+
+      case USB_TX_VIA:
+        memcpy(via_tx_buf, item.data, item.len);
+        hid_device_submit_report(hid_via_dev, item.len, via_tx_buf);
+        break;
+    }
+  }
+}
+
+K_THREAD_DEFINE(usb_tx_thread,
+                _HW_DEF_RTOS_THREAD_MEM_USB_TX,
+                usbTxThread, NULL, NULL, NULL,
+                _HW_DEF_RTOS_THREAD_PRI_USB_TX, 0, 0);
+
+// 큐에 넣고 **즉시 반환**한다. 실제 전송(블로킹)은 usb_tx_thread 가 한다.
+static bool usb_tx_put(uint8_t dev, const uint8_t *data, uint16_t length)
+{
+  struct usb_tx_item item;
+
+  if (length > sizeof(item.data))
+  {
+    length = sizeof(item.data);
+  }
+  item.dev = dev;
+  item.len = (uint8_t)length;
+  memcpy(item.data, data, length);
+
+  // K_NO_WAIT: 큐가 차면 버린다. 여기서 기다리면 메인 루프가 막혀 원래 문제로 돌아간다.
+  return k_msgq_put(&usb_tx_q, &item, K_NO_WAIT) == 0;
+}
 
 
 // static void input_cb(struct input_event *evt, void *user_data)
@@ -177,6 +270,23 @@ static void kb_iface_ready(const struct device *dev, const bool ready)
 {
   LOG_INF("HID device %s interface is %s", dev->name, ready ? "ready" : "not ready");
   kb_ready = ready;
+
+  if (!ready)
+  {
+    /*
+     * USB 가 내려갔다 — 큐에 남은 리포트를 **버린다**.
+     *
+     * 갈 곳이 없어진 리포트다. 남겨두면 재연결 시 그대로 나가 **유령 키 입력**이 된다
+     * (예: [press A] 가 남은 채 재연결 -> 호스트가 A 를 눌린 것으로 본다).
+     *
+     * 실제로는 Zephyr 가 클래스 disabled 상태에서 submit 을 -EACCES 로 즉시 거절하므로
+     * TX 스레드가 알아서 비운다. 하지만 그건 **우연한 안전**이지 우리가 표현한 의도가
+     * 아니다 — 여기서 명시한다.
+     *
+     * 새 리포트는 위 kb_ready=false 로 애초에 안 쌓인다(usbHidSendReport 가 먼저 본다).
+     */
+    k_msgq_purge(&usb_tx_q);
+  }
 }
 
 static int kb_get_report(const struct device *dev,
@@ -347,9 +457,7 @@ bool usbHidSendReport(uint8_t *data, uint16_t length)
   {
     length = sizeof(kbd_tx_buf);
   }
-  memcpy(kbd_tx_buf, data, length);
-
-  return hid_device_submit_report(hid_kbd_dev, length, kbd_tx_buf) == 0;
+  return usb_tx_put(USB_TX_KBD, data, length);
 }
 
 // System/Consumer control 리포트(report_extra_t: report_id + usage16)를 exk HID IN 으로 전송.
@@ -363,9 +471,7 @@ bool usbHidSendReportEXK(uint8_t *data, uint16_t length)
   {
     length = sizeof(exk_tx_buf);
   }
-  memcpy(exk_tx_buf, data, length);
-
-  return hid_device_submit_report(hid_exk_dev, length, exk_tx_buf) == 0;
+  return usb_tx_put(USB_TX_EXK, data, length);
 }
 
 uint8_t usbHidGetKbdLeds(void)
@@ -395,9 +501,7 @@ bool usbHidSendReportVia(uint8_t *data, uint16_t length)
   {
     length = sizeof(via_tx_buf);
   }
-  memcpy(via_tx_buf, data, length);
-
-  return hid_device_submit_report(hid_via_dev, length, via_tx_buf) == 0;
+  return usb_tx_put(USB_TX_VIA, data, length);
 }
 
 bool usbHidInit(void)
