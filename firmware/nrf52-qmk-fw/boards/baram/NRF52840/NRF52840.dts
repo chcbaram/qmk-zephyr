@@ -84,7 +84,12 @@
     wakeup-source;             /* deep sleep(Phase 6)에서 wakeup 소스로 유지 */
     no-ghostkey-check;         /* 다이오드(row2col) 있으므로 고스팅 검사 불필요 */
 
-    poll-period-ms   = <1>;    /* 키 눌린 동안 1kHz 재스캔 (USB 1ms 폴링 정합) */
+    /*
+     * 키 눌린 동안 매트릭스 재스캔 주기. QMK 처리 주기(config.h 의 QMK_TASK_PERIOD_MS)와는
+     * **별개 노브**다 — 같을 필요 없다. 둘 다 CPU 를 깨우므로 전력엔 둘 다 영향을 준다.
+     * 실측/근거는 docs/PORTING-NOTES.md §6.4.
+     */
+    poll-period-ms   = <2>;    /* 키 변화 감지 지연 <=2ms, USB 리포트율 500Hz */
     debounce-down-ms = <0>;    /* 디바운스는 QMK 가 담당 (이중 디바운스 방지) */
     debounce-up-ms   = <0>;
   };

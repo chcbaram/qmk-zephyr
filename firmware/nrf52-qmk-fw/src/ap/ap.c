@@ -48,9 +48,9 @@ void apMain(void)
     }
     else
     {
-      // 활성 구간: ≈1kHz 로 스캔/타이머 진행. QMK 디바운스·탭핑이 여기서 돈다.
+      // 활성 구간: QMK 디바운스·탭핑이 여기서 돈다. 주기는 키보드 config.h 에서 조정한다.
       // (RTOS: USB/로그/CLI 스레드에 CPU 양보 — 없으면 그 스레드들이 굶는다)
-      k_msleep(1);
+      k_msleep(QMK_TASK_PERIOD_MS);
     }
 
 #ifdef AP_USE_HEARTBEAT_LED
