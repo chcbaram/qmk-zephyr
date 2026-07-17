@@ -112,9 +112,19 @@ bool qmkIsSuspended(void)
   return suspended;
 }
 
+void qmkSuspendForSleep(void)
+{
+  if (suspended)
+  {
+    return;   // 이미 꺼져 있다
+  }
+  suspended = true;                // flush 가 qmkIsSuspended() 로 레일을 내린다 — 순서 계약
+  suspend_power_down_quantum();    // RGB(검은 프레임 + 레일 off) + 인디케이터(led_suspend)
+}
+
 void qmkSuspendUpdate(void)
 {
-  bool want = usb_suspended || activityIsIdle();
+  bool want = usb_suspended || activityRgbIsIdle();
 
   if (want == suspended)
   {
@@ -126,7 +136,7 @@ void qmkSuspendUpdate(void)
   suspended = want;
 
   logPrintf("[  ] %s (usb_susp=%d idle=%d)\n", want ? "power down" : "wakeup",
-            usb_suspended, activityIsIdle());
+            usb_suspended, activityRgbIsIdle());
 
   if (want)
   {
