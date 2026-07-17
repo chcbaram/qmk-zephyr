@@ -11,12 +11,27 @@
 #include <zephyr/sys/poweroff.h>
 
 /*
- * 타임아웃 기본값 = ZMK wish60/wish65 보드 defconfig 실제 값.
- *   CONFIG_ZMK_IDLE_TIMEOUT=30000          (30초)
- *   CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=3600000  (1시간)
- * ZMK 의 Kconfig 기본값이 아니라 **보드가 지정한 값**을 따랐다.
+ * sleep 타임아웃 = ZMK wish60/wish65 보드 defconfig 실제 값(CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=1시간).
+ *
+ * idle 은 ZMK 를 따르지 않는다. 처음엔 ZMK 의 CONFIG_ZMK_IDLE_TIMEOUT=30초를 그대로 가져왔는데
+ * **용도가 다른 값이었다** — ZMK 에서 그 30초는 RGB 와 무관하고(ZMK 의 RGB 소등은 별개 옵션인
+ * ZMK_RGB_UNDERGLOW_AUTO_OFF_IDLE 이며, wish60/wish65 defconfig 는 **그걸 켜지 않는다**),
+ * 우리 IDLE 은 지금 **RGB/인디케이터 소등이 유일한 용도**다(qmkSuspendUpdate 가 유일한 소비자).
+ * 즉 이 값은 사실상 "RGB 타임아웃" 이다.
+ *
+ * 그래서 2분으로 잡는다:
+ *  - 30초는 **짧다**. 뭔가 읽거나 생각하느라 멈추면 RGB 가 꺼져 매번 거슬린다.
+ *  - 길어도 거의 공짜다: RGB 65mA × 4분 = 4.3mAh = 1000mAh 의 **0.4%**(§6.10).
+ *    "자리를 뜬 뒤 몇 분 더 켜짐" 의 비용은 무시할 수준이고, 진짜 절감은 그 뒤 계속 꺼져 있는
+ *    데서 나온다(65mA -> 60µA).
+ *
+ * VIA(FEATURE > POWER > Idle Timeout)로 조절한다 — Off/5s/10s/15s/30s/1m/2m/4m.
+ * **Off 를 고르면 ZMK 와 같은 동작**(deep sleep 전까지 RGB 유지)이 된다.
+ *
+ * [주의] 여기를 바꿔도 **EEPROM 에 저장된 값이 있으면 그게 이긴다**(power_cfg_init). 기본값은
+ * EEPROM 이 비었을 때만 쓰인다 — 이미 쓰던 보드는 VIA 에서 직접 바꿔야 한다.
  */
-#define ACTIVITY_IDLE_TIMEOUT_MS_DEF    (30 * 1000)
+#define ACTIVITY_IDLE_TIMEOUT_MS_DEF    (2 * 60 * 1000)
 #define ACTIVITY_SLEEP_TIMEOUT_MS_DEF   (60 * 60 * 1000)
 
 #if CLI_USE(HW_ACTIVITY)
