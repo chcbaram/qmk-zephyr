@@ -82,4 +82,9 @@
 #define ENABLE_RGB_MATRIX_RAINBOW_PINWHEELS
 #define ENABLE_RGB_MATRIX_PIXEL_FLOW
 
+// HOLD_ON_OTHER_KEY_PRESS 를 **런타임 콜백**으로 받는다 (config.cmake 의 HOLD_OKP_RUNTIME).
+// 이게 없으면 action_tapping.c 의 TAP_GET_HOLD_ON_OTHER_KEY_PRESS 가 상수 false 로 굳어
+// **VIA 토글이 조용히 무효가 된다**. 구현은 port/via/hold_okp.c 의 get_hold_on_other_key_press().
+#define HOLD_ON_OTHER_KEY_PRESS_PER_KEY
+
 #define GRAVE_ESC_ENABLE

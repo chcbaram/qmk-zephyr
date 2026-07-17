@@ -16,7 +16,18 @@ endif()
 if (NOT DEFINED DEBOUNCE_TYPE)
   set(DEBOUNCE_TYPE sym_defer_pk)
 endif()
-set(DEBOUNCE_FILES ${QMK_ROOT_PATH}/quantum/debounce/${DEBOUNCE_TYPE}.c)
+#
+# DEBOUNCE_RUNTIME 이면 원본을 직접 컴파일하지 않고 port/debounce_wrapper.c 가 감싼다
+# (원본이 debounce_time_get() 을 선언 없이 부른다 — 자세한 이유는 그 파일 주석 참고).
+# 둘 다 컴파일하면 debounce() 가 중복 정의되므로 **원본은 목록에서 뺀다**.
+# 래퍼를 port/debounce/ 하위에 둔 이유: 아래 glob 이 port/*.c 라 재귀가 아니다 — 같은 파일이
+# glob 과 DEBOUNCE_FILES 양쪽에 잡히는 것을 피한다.
+if (DEBOUNCE_RUNTIME)
+  set(DEBOUNCE_FILES ${QMK_ROOT_PATH}/port/debounce/debounce_wrapper.c)
+  add_compile_definitions(DEBOUNCE_IMPL_FILE="${QMK_ROOT_PATH}/quantum/debounce/${DEBOUNCE_TYPE}.c")
+else()
+  set(DEBOUNCE_FILES ${QMK_ROOT_PATH}/quantum/debounce/${DEBOUNCE_TYPE}.c)
+endif()
 
 # RGB 언더글로우 — 키보드 config.cmake 가 켠다.
 #
@@ -90,6 +101,21 @@ set(QMK_INC_DIR
   ${QMK_KEYBOARD_PATH}
   ${QMK_KEYBOARD_PATH}/port
 )
+
+# 런타임 디바운스 시간 (VIA). vendored sym_defer_pk.c 의 DEBOUNCE_RUNTIME 훅이
+# debounce_time_get()(port/via/debounce_cfg.c)을 부른다 — QMK 쪽 수정은 없다.
+# [주의] config.h 의 컴파일타임 DEBOUNCE 는 여전히 0 보다 커야 한다(`#if DEBOUNCE > 0` 가
+# 구현 전체를 가둔다 — 0 이면 파일이 패스스루가 되어 런타임 값이 무의미해진다).
+if (DEBOUNCE_RUNTIME)
+  add_compile_definitions(DEBOUNCE_RUNTIME)
+endif()
+
+# HOLD_ON_OTHER_KEY_PRESS 런타임 on/off (VIA).
+# 키보드 config.h 에 HOLD_ON_OTHER_KEY_PRESS_PER_KEY 가 있어야 action_tapping.c 가
+# get_hold_on_other_key_press() 를 부른다 — 없으면 토글이 조용히 무효가 된다.
+if (HOLD_OKP_RUNTIME)
+  add_compile_definitions(HOLD_OKP_RUNTIME)
+endif()
 
 add_compile_definitions(VIA_ENABLE)
 add_compile_definitions(RAW_ENABLE)

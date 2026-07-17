@@ -530,6 +530,33 @@
               ]
             }
           ]
+        },
+        {
+          "label": "QMK",
+          "content": [
+            {
+              "label": "Debounce Time (ms)",
+              "type": "range",
+              "options": [
+                5,
+                40
+              ],
+              "content": [
+                "id_qmk_debounce_time",
+                17,
+                1
+              ]
+            },
+            {
+              "label": "Hold On Other Key Press",
+              "type": "toggle",
+              "content": [
+                "id_qmk_hold_okp",
+                18,
+                1
+              ]
+            }
+          ]
         }
       ]
     },
