@@ -35,15 +35,31 @@
 // 무선 키보드라 밝기를 제한한다. 16개 풀 화이트는 수백 mA 로 배터리를 즉시 말린다.
 #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 120
 #define RGB_MATRIX_DEFAULT_VAL      60
-// 켜진 상태로 부팅하지 않는다(ZMK wish60 의 RGB_UNDERGLOW_ON_START=n 과 같은 이유).
+// 켜진 상태로 부팅하지 않는다. ramune60(유선)은 default on 이지만 우리는 **무선**이라 다르다 —
+// 16개 언더글로우는 배터리에서 수십 mA 라 사용자가 켜기로 선택해야 한다.
+// (ZMK wish60 의 RGB_UNDERGLOW_ON_START=n 과 같은 판단)
 #define RGB_MATRIX_DEFAULT_ON       false
-// 효과는 필요한 것만 — 47개 전부 넣으면 플래시만 먹는다.
-#define ENABLE_RGB_MATRIX_SOLID_COLOR
+// idle/서스펜드 시 LED 소등 훅(rgb_matrix_set_suspend_state). ramune60 도 sleep:True.
+// Phase 8-C 에서 activity 상태머신이 이걸 호출한다.
+#define RGB_MATRIX_SLEEP
+// 효과 — baram 의 upstream QMK 보드 ramune60 과 동일한 17개(keyboard.json 의 rgb_matrix.animations).
+// 47개 전부 넣으면 플래시만 먹고, 언더글로우에선 키 반응형(reactive) 효과가 의미 없다.
+#define ENABLE_RGB_MATRIX_GRADIENT_UP_DOWN
+#define ENABLE_RGB_MATRIX_GRADIENT_LEFT_RIGHT
 #define ENABLE_RGB_MATRIX_BREATHING
+#define ENABLE_RGB_MATRIX_BAND_VAL
+#define ENABLE_RGB_MATRIX_BAND_PINWHEEL_VAL
+#define ENABLE_RGB_MATRIX_BAND_SPIRAL_VAL
 #define ENABLE_RGB_MATRIX_CYCLE_ALL
 #define ENABLE_RGB_MATRIX_CYCLE_LEFT_RIGHT
-#define ENABLE_RGB_MATRIX_CYCLE_PINWHEEL
+#define ENABLE_RGB_MATRIX_CYCLE_UP_DOWN
 #define ENABLE_RGB_MATRIX_RAINBOW_MOVING_CHEVRON
-#define ENABLE_RGB_MATRIX_GRADIENT_LEFT_RIGHT
+#define ENABLE_RGB_MATRIX_CYCLE_OUT_IN
+#define ENABLE_RGB_MATRIX_CYCLE_OUT_IN_DUAL
+#define ENABLE_RGB_MATRIX_CYCLE_PINWHEEL
+#define ENABLE_RGB_MATRIX_CYCLE_SPIRAL
+#define ENABLE_RGB_MATRIX_RAINBOW_BEACON
+#define ENABLE_RGB_MATRIX_RAINBOW_PINWHEELS
+#define ENABLE_RGB_MATRIX_PIXEL_FLOW
 
 #define GRAVE_ESC_ENABLE
