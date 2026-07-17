@@ -50,6 +50,28 @@ static void output_select_task(void)
   logPrintf("[  ] output -> %s\n", (want == &usb_driver) ? "USB" : "BLE");
 }
 
+/*
+ * USB 서스펜드 -> QMK 서스펜드 훅.
+ *
+ * PC 가 자면 RGB 를 꺼야 한다. QMK 에 이미 경로가 있다:
+ *   suspend_power_down_quantum() -> rgb_matrix_set_suspend_state(true) -> LED 소등 + flush
+ *   -> 우리 flush 가 ext-power 레일까지 내린다(rgb_matrix_drivers.c)
+ * 그 훅을 아무도 안 부르고 있었다 — usbd_next 의 SUSPEND/RESUME 메시지를 여기 연결한다.
+ *
+ * BLE 쪽 idle 은 activity 상태머신이 따로 담당한다(port/activity.c).
+ */
+static void qmk_usb_suspend_cb(bool suspended)
+{
+  if (suspended)
+  {
+    suspend_power_down_quantum();
+  }
+  else
+  {
+    suspend_wakeup_init_quantum();
+  }
+}
+
 bool qmkInit(void)
 {
   eeprom_init();
@@ -65,7 +87,9 @@ bool qmkInit(void)
   keyboard_init();
 
   activityInit();
-  viaPortInit();   // EEPROM 에 저장된 전력 설정을 activity 에 적용 (activityInit 뒤여야 한다)
+  viaPortInit();
+
+  usbSetSuspendFunc(qmk_usb_suspend_cb);   // 호스트 PC 가 자면 RGB 소등   // EEPROM 에 저장된 전력 설정을 activity 에 적용 (activityInit 뒤여야 한다)
 
   logPrintf("[OK] qmkInit()\n");
   logPrintf("     MATRIX %d x %d, DEBOUNCE %d\n", MATRIX_ROWS, MATRIX_COLS, DEBOUNCE);
