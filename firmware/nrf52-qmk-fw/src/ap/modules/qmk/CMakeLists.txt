@@ -18,11 +18,20 @@ if (NOT DEFINED DEBOUNCE_TYPE)
 endif()
 set(DEBOUNCE_FILES ${QMK_ROOT_PATH}/quantum/debounce/${DEBOUNCE_TYPE}.c)
 
-# RGB (Phase 0: 비활성)
-if (RGBLIGHT_ENABLE)
-  list(APPEND QMK_ADD_FILES "${QMK_ROOT_PATH}/quantum/rgblight/rgblight.c")
+# RGB 언더글로우 — 키보드 config.cmake 가 켠다.
+#
+# RGBLIGHT 가 아니라 RGB_MATRIX 다(위치 기반 효과. ramune60 과 같은 선택 — config.cmake 주석 참고).
+# rgb_matrix_drivers.c 는 **키보드별**이다(보드마다 LED 배치가 다르다) — baram-qmk 규약.
+# quantum/rgb_matrix/rgb_matrix_drivers.c(순정)는 컴파일하지 않는다: QMK 내장 ws2812 드라이버를
+# 전제하는데 우리 백엔드는 Zephyr led_strip 이라 키보드 쪽 구현으로 대체한다.
+if (RGB_MATRIX_ENABLE)
+  list(APPEND QMK_ADD_FILES "${QMK_ROOT_PATH}/quantum/rgb_matrix/rgb_matrix.c")
   list(APPEND QMK_ADD_FILES "${QMK_ROOT_PATH}/quantum/process_keycode/process_rgb.c")
-  list(APPEND QMK_ADD_FILES "${QMK_KEYBOARD_PATH}/driver/rgblight_drivers.c")
+  list(APPEND QMK_ADD_FILES "${QMK_KEYBOARD_PATH}/driver/rgb_matrix_drivers.c")
+  # rgb_matrix 가 <lib/lib8tion/lib8tion.h> 를 쓴다(QMK 의 8비트 고정소수점 수학 라이브러리).
+  # upstream QMK 에서 src/lib/lib8tion 으로 vendor-in — src/lib 는 이미 include 경로다.
+  list(APPEND QMK_ADD_FILES "${CMAKE_CURRENT_LIST_DIR}/../../../lib/lib8tion/lib8tion.c")
+  add_compile_definitions(RGB_MATRIX_ENABLE)
 endif()
 
 # 컴파일할 파일만 명시적으로 나열 (quantum 트리 전체를 긁지 않는다)
@@ -74,6 +83,9 @@ set(QMK_INC_DIR
   ${QMK_ROOT_PATH}/quantum/send_string
   ${QMK_ROOT_PATH}/quantum/process_keycode
   ${QMK_ROOT_PATH}/quantum/rgblight
+  ${QMK_ROOT_PATH}/quantum/rgb_matrix
+  ${QMK_ROOT_PATH}/quantum/rgb_matrix/animations
+  ${QMK_ROOT_PATH}/quantum/rgb_matrix/animations/runners
 
   ${QMK_KEYBOARD_PATH}
   ${QMK_KEYBOARD_PATH}/port
