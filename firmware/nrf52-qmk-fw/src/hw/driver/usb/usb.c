@@ -203,27 +203,46 @@ void usbSetSuspendFunc(void (*func)(bool suspended))
   p_suspend_func = func;
 }
 
+// 호스트가 열거를 마쳤나(SET_CONFIGURATION 수신). 열거 전 SUSPEND 를 무시하는 데 쓴다.
+static bool is_configured = false;
+
 static void msg_cb(struct usbd_context *const   usbd_ctx,
                    const struct usbd_msg *const msg)
 {
   LOG_INF("USBD message: %s", usbd_msg_type_string(msg->type));
 
-  // 호스트가 자면 SUSPEND, 깨면 RESUME. 등록자(port/qmk.c)가 QMK 서스펜드 훅으로 넘긴다.
+  if (msg->type == USBD_MSG_CONFIGURATION)
+  {
+    LOG_INF("\tConfiguration value %d", msg->status);
+    // status 0 = 미구성(버스 리셋 등). 그 외 = 호스트가 구성값을 선택했다 = 열거 완료.
+    is_configured = (msg->status != 0);
+  }
+
+  /*
+   * 호스트가 자면 SUSPEND, 깨면 RESUME. 등록자(port/qmk.c)가 QMK 서스펜드 훅으로 넘겨
+   * RGB/인디케이터를 끈다.
+   *
+   * [열거 전 SUSPEND 는 무시한다] USB 를 꽂으면 usbd 는 **SUSPEND 를 먼저** 보낸다 —
+   * 버스가 아직 조용할 뿐이지 호스트가 잠든 게 아니다. 실측 타임라인:
+   *     0.118  Device suspended          <- 연결 직후. 아직 열거도 안 됐다
+   *     0.430  Bus reset / Device resumed
+   *     0.500  New device configuration  <- 여기서야 호스트가 우리를 인식
+   * 이걸 존중하면 **USB 를 꽂을 때마다 RGB 가 깜빡인다**(배터리 + RGB 켠 상태에서 재현).
+   * 진짜 PC 슬립은 열거 **이후**에만 오므로 is_configured 로 가른다.
+   */
   if (p_suspend_func != NULL)
   {
     if (msg->type == USBD_MSG_SUSPEND)
     {
-      p_suspend_func(true);
+      if (is_configured)
+      {
+        p_suspend_func(true);
+      }
     }
     else if (msg->type == USBD_MSG_RESUME)
     {
       p_suspend_func(false);
     }
-  }
-
-  if (msg->type == USBD_MSG_CONFIGURATION)
-  {
-    LOG_INF("\tConfiguration value %d", msg->status);
   }
 
   if (usbd_can_detect_vbus(usbd_ctx))
@@ -238,6 +257,17 @@ static void msg_cb(struct usbd_context *const   usbd_ctx,
 
     if (msg->type == USBD_MSG_VBUS_REMOVED)
     {
+      /*
+       * USB 를 뽑았다. 서스펜드 상태를 **반드시 풀어야 한다** — 안 그러면 배터리로 돌아왔는데
+       * "호스트가 자고 있다"는 상태가 남아 RGB 가 꺼진 채 있게 된다(USB 가 없으니 RESUME 도
+       * 영영 안 온다). 열거 상태도 함께 초기화한다.
+       */
+      is_configured = false;
+      if (p_suspend_func != NULL)
+      {
+        p_suspend_func(false);
+      }
+
       if (usbd_disable(usbd_ctx))
       {
         LOG_ERR("Failed to disable device support");
