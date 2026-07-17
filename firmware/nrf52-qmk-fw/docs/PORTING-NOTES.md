@@ -226,11 +226,20 @@ ZMK 와 동일하게 5대가 **동시에 연결된 채로** 있고, 리포트는
 
 `target_compile_options(app PRIVATE -include <kbd>/config.h)` — 실제 QMK 빌드 시스템과 같은 방식이다.
 
-없으면 조용히 깨진다: quantum 헤더들이 여러 경로로 `eeconfig.h` 를 먼저 끌어온다
-(예: `via.h` → `eeconfig.h` 가 `via.h` → `action.h` → `config.h` 보다 먼저). 그 시점엔
-`EECONFIG_USER_DATA_SIZE` 가 없어 `#ifndef → 0` 이 걸리고 → 데이터블록 API 선언이 통째로 빠지고
-(implicit declaration) → 나중에 config.h 가 512 로 **재정의** → **번역 단위마다 EEPROM 레이아웃이
-어긋난다**. 경고로만 나타나서 놓치기 쉽다.
+**문제**: quantum 헤더들이 여러 경로로 `eeconfig.h` 를 `config.h` 보다 먼저 끌어온다
+(`via.h` 의 `#include "eeconfig.h"` 가 `#include "action.h"` → … → `config.h` 보다 먼저).
+그 시점엔 `EECONFIG_USER_DATA_SIZE` 가 없어 `eeconfig.h` 의 `#ifndef → 0` 이 걸린다.
+
+**실제 피해(정확히)** — 터진 버그가 아니라 **지뢰**였다:
+- `EECONFIG_SIZE` 는 매크로라 **사용 시점**에 전개된다. 그땐 config.h 가 들어와 512 이므로
+  **주소값 자체는 맞게 나온다**. `EECONFIG_USER_DATABLOCK` 은 USER_DATA_SIZE 와 무관.
+- 실제로 깨진 건 `#if (EECONFIG_USER_DATA_SIZE) > 0` 가드 → **데이터블록 API 선언 누락**
+  (implicit declaration). 시그니처가 우연히 맞아 동작은 했다.
+- **잠재 위험**: config.h 를 전혀 안 거치는 TU 가 생기면 그 TU 만 0 으로 계산한다.
+
+**baram-qmk 도 같은 상태다**(via.h 구조가 동일). 그쪽은 `hw_def.h` 로 config.h 를 모으지만
+그건 **hw 계층용**이고 QMK 코어 TU 는 `_util.h`/`gpio.h`/`host.h` 의 개별 include 에 의존한다.
+즉 baram 이 더 나은 게 아니라 안 고친 것 — upstream QMK 방식(`-include`)을 택했다.
 
 > `add_compile_options()` 는 **안 먹는다** — Zephyr 의 `app` 라이브러리에 디렉터리 스코프 옵션이
 > 붙지 않는다. 반드시 `target_compile_options(app ...)` 를 쓸 것. (`add_compile_definitions` 는 먹는다)
