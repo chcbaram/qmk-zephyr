@@ -35,6 +35,15 @@ uint32_t qmkGetInactiveMs(void);
 #define QMK_TASK_PERIOD_MS   2
 #endif
 
+/*
+ * idle 일 때 얼마나 잘지(ms). 0 = 키 입력까지 무한 대기.
+ *
+ * 평소엔 activity 상태머신의 다음 데드라인이지만, **RGB 애니메이션이 켜져 있으면 프레임
+ * 주기로 깨어나야 한다** — 안 그러면 무한 대기에 걸려 첫 프레임만 그려지고 멈춘다.
+ * (§2.6 의 "QMK 폴링 vs ZMK 이벤트" 가 RGB 에서 다시 나타나는 지점)
+ */
+uint32_t qmkGetIdleWaitMs(void);
+
 #ifdef __cplusplus
 }
 #endif

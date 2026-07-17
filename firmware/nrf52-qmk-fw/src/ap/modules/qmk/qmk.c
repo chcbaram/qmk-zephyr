@@ -5,6 +5,9 @@
 #include "via_hid.h"
 #include "via_port.h"
 #include "port/activity.h"
+#ifdef RGB_MATRIX_ENABLE
+#include "rgb_matrix.h"
+#endif
 #include "ble.h"
 #include "cli.h"
 #include "usb_hid/usb_hid.h"
@@ -94,6 +97,26 @@ bool qmkInit(void)
   logPrintf("[OK] qmkInit()\n");
   logPrintf("     MATRIX %d x %d, DEBOUNCE %d\n", MATRIX_ROWS, MATRIX_COLS, DEBOUNCE);
   return true;
+}
+
+uint32_t qmkGetIdleWaitMs(void)
+{
+  uint32_t wait_ms = activityGetWaitMs();
+
+#ifdef RGB_MATRIX_ENABLE
+  // RGB 가 켜져 있으면 애니메이션 프레임을 계속 그려야 한다. activity 데드라인(수십 초)까지
+  // 자버리면 화면이 멈춘다 → 둘 중 짧은 쪽으로 깬다.
+  // RGB 자체가 mA 단위라 60fps 웨이크업(수십 µA)은 여기서 무시할 만하다.
+  if (rgb_matrix_is_enabled())
+  {
+    if (wait_ms == 0 || wait_ms > RGB_MATRIX_LED_FLUSH_LIMIT)
+    {
+      wait_ms = RGB_MATRIX_LED_FLUSH_LIMIT;
+    }
+  }
+#endif
+
+  return wait_ms;
 }
 
 void qmkUpdate(void)
