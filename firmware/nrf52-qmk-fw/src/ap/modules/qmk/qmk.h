@@ -44,6 +44,15 @@ uint32_t qmkGetInactiveMs(void);
  */
 uint32_t qmkGetIdleWaitMs(void);
 
+/*
+ * 잠들어 있는 메인 루프를 깨운다.
+ *
+ * 루프는 idle 이면 qmkWaitActivity() 에서 블록한다. **키 입력 말고도 루프를 다시 돌려야 하는
+ * 경로**가 있으면 여기로 깨워야 한다 — 예: VIA 가 RGB 를 켜면 rgb_matrix_task() 가 돌아야
+ * 불이 들어온다. 안 깨우면 사용자가 키를 누를 때까지 아무 일도 안 일어난다(실제로 겪음).
+ */
+void qmkWake(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -172,3 +172,10 @@ uint32_t qmkGetInactiveMs(void)
 {
   return k_uptime_get_32() - last_activity_ms;
 }
+
+void qmkWake(void)
+{
+  // 키 입력과 같은 경로로 깨운다. last_activity_ms 는 건드리지 않는다 —
+  // 이건 "사용자 입력"이 아니므로 idle/sleep 타이머를 리셋하면 안 된다.
+  k_sem_give(&kbd_activity_sem);
+}

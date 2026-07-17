@@ -32,8 +32,11 @@
 
 // 언더글로우 — DTS led_strip 의 chain-length / HW_WS2812_MAX_CH 와 반드시 일치.
 #define RGB_MATRIX_LED_COUNT        16
-// 무선 키보드라 밝기를 제한한다. 16개 풀 화이트는 수백 mA 로 배터리를 즉시 말린다.
-#define RGB_MATRIX_MAXIMUM_BRIGHTNESS 120
+// 상한은 하드웨어 한계까지 열어둔다(ramune60 도 255). 제한하면 VIA 슬라이더 끝이
+// 실제 최대와 달라져 사용자를 속이게 된다.
+// [주의] 16개 풀 화이트는 개당 ~60mA -> **약 1A**. 배터리로는 40분 남짓이고 보호회로가
+// 걸릴 수 있다. 그래서 상한은 열되 **기본값은 낮게** 둔다 — 올리는 건 사용자 선택.
+#define RGB_MATRIX_MAXIMUM_BRIGHTNESS 255
 #define RGB_MATRIX_DEFAULT_VAL      60
 // 켜진 상태로 부팅하지 않는다. ramune60(유선)은 default on 이지만 우리는 **무선**이라 다르다 —
 // 16개 언더글로우는 배터리에서 수십 mA 라 사용자가 켜기로 선택해야 한다.
