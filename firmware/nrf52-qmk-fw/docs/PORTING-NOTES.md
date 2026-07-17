@@ -602,10 +602,11 @@ QMK 의 효과 enum 은 **켠 것만** 들어가 인덱스가 압축된다(`rgb_
   (`qmkWake()` 는 `last_activity_ms` 를 건드리지 않는다 — 사용자 입력이 아니므로 idle/sleep
    타이머를 리셋하면 안 된다)
 
-**밝기 상한**: `RGB_MATRIX_MAXIMUM_BRIGHTNESS 255`(하드웨어 한계까지 개방, ramune60 과 동일).
-VIA 는 0~255 를 `scale8(v, MAXIMUM_BRIGHTNESS)` 로 스케일하므로 상한을 낮추면 **슬라이더 끝이
-실제 최대와 달라져 사용자를 속인다**. 대신 `RGB_MATRIX_DEFAULT_VAL 60` 으로 기본값을 낮게 둔다 —
-16개 풀 화이트는 개당 ~60mA → **약 1A** 로 배터리로는 40분 남짓이다.
+**밝기 상한은 보드별 노브다.** `RGB_MATRIX_MAXIMUM_BRIGHTNESS` 가 키보드 `config.h` 에 있는
+이유가 그것 — 보드마다 전력 예산이 다르다. VIA 는 0~255 를 `scale8(v, MAXIMUM_BRIGHTNESS)` 로
+스케일하므로 슬라이더는 항상 **"이 보드가 허용하는 범위의 0~100%"** 를 뜻한다(낮춰도 정상 동작).
+wish60 은 255(ramune60 과 동일) + `RGB_MATRIX_DEFAULT_VAL 60` 으로 기본값만 낮게.
+16개 풀 화이트는 개당 ~60mA → **약 1A**, 배터리로는 40분 남짓이다.
 
 **함정 0 — `CONFIG_PM_DEVICE_RUNTIME` 은 절대 켜지 말 것 (키보드가 죽는다).**
 
