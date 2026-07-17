@@ -25,4 +25,9 @@
 
 #define DEBOUNCE                    10
 
+// QMK 처리 주기(ms). board DTS 의 kbd_matrix poll-period-ms 와는 별개 노브다(qmk.h 주석 참고).
+// 실측(키 누른 채): 1ms=3.40mA / 2ms=2.43mA / 4ms=1.40mA. USB 리포트율은 1000/N Hz.
+// 2 = 전력/지연 균형점. BLE 는 연결 간격 11.25ms 라 이 값과 무관하다.
+#define QMK_TASK_PERIOD_MS          2
+
 #define GRAVE_ESC_ENABLE
