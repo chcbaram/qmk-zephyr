@@ -225,6 +225,99 @@
       "label": "Wireless",
       "content": [
         {
+          "label": "Bluetooth",
+          "content": [
+            {
+              "label": "Active Profile",
+              "type": "dropdown",
+              "options": [
+                [
+                  "Profile 1",
+                  0
+                ],
+                [
+                  "Profile 2",
+                  1
+                ],
+                [
+                  "Profile 3",
+                  2
+                ],
+                [
+                  "Profile 4",
+                  3
+                ],
+                [
+                  "Profile 5",
+                  4
+                ]
+              ],
+              "content": [
+                "id_ble_profile",
+                16,
+                1
+              ]
+            },
+            {
+              "label": "Profile 1 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_0",
+                16,
+                2
+              ]
+            },
+            {
+              "label": "Profile 2 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_1",
+                16,
+                3
+              ]
+            },
+            {
+              "label": "Profile 3 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_2",
+                16,
+                4
+              ]
+            },
+            {
+              "label": "Profile 4 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_3",
+                16,
+                5
+              ]
+            },
+            {
+              "label": "Profile 5 Paired (off = clear)",
+              "type": "toggle",
+              "content": [
+                "id_ble_bond_4",
+                16,
+                6
+              ]
+            },
+            {
+              "label": "Clear All Bonds",
+              "type": "button",
+              "options": [
+                1
+              ],
+              "content": [
+                "id_ble_clear_all",
+                16,
+                7
+              ]
+            }
+          ]
+        },
+        {
           "label": "Power",
           "content": [
             {

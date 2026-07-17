@@ -200,10 +200,18 @@ ZMK 와 동일하게 5대가 **동시에 연결된 채로** 있고, 리포트는
 - 채널 ID 는 숫자로만 통하므로 `via.h` 의 `via_channel_id` enum 을 수정할 필요가 없다 →
   `port/via_port.h` 에서 `ID_BARAM_POWER_CHANNEL 15` 로 정의. (8~14 는 baram-qmk 가 이미 사용 중)
 
-| 채널 | value | 의미 | 단위 |
+| 채널 | value | 컨트롤 | 의미 |
 |---|---|---|---|
-| 15 | 1 | idle 타임아웃 | 초 |
-| 15 | 2 | sleep 타임아웃 | 분 |
+| 9 (`sys_port.c`) | 1 | toggle | 부트로더(UF2) 진입 |
+| 9 | 2~4 | toggle ×3 | EEPROM 초기화 (**3개 다 켜야** 실행) |
+| 15 (`power_cfg.c`) | 1 | dropdown | idle 타임아웃(초) |
+| 15 | 2 | dropdown | sleep 타임아웃(분) |
+| 16 (`ble_cfg.c`) | 1 | dropdown | 활성 프로파일(0~4) |
+| 16 | 2~6 | toggle ×5 | 프로파일별 **본딩 유무**. 끄면 그 본딩 삭제 |
+| 16 | 7 | button | 전 프로파일 본딩 삭제 |
+
+BLE 토글은 **끄는 방향만** 의미가 있다(= 삭제). 켜는 방향은 무시한다 — 본딩은 호스트가
+페어링해야 생기지 VIA 로 만들 수 없다. 그래서 "선택"은 드롭다운, "삭제"는 토글로 나눴다.
 
 - VIA 쪽은 정의 JSON 의 **`menus`**(v3 포맷, `VIA_PROTOCOL_VERSION 0x000C` 필요)에
   `content: [<이름>, <channel>, <value>]` 로 연결한다.

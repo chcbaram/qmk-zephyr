@@ -1,6 +1,7 @@
 #include "via_port.h"
 #include "power_cfg.h"
 #include "sys_port.h"
+#include "ble_cfg.h"
 #include "quantum.h"
 #include "via.h"
 
@@ -27,6 +28,12 @@ void via_custom_value_command_kb(uint8_t *data, uint8_t length)
   if (*channel_id == ID_QMK_SYSTEM_CHANNEL)
   {
     via_qmk_system_command(data, length);
+    return;
+  }
+
+  if (*channel_id == ID_QMK_BLE_CHANNEL)
+  {
+    via_qmk_ble_command(data, length);
     return;
   }
 
