@@ -66,16 +66,57 @@ static void output_select_task(void)
  *
  * BLE 쪽 idle 은 activity 상태머신이 따로 담당한다(port/activity.c).
  */
-static void qmk_usb_suspend_cb(bool suspended)
+static bool usb_suspended = false;
+static bool suspended     = false;
+
+static void qmk_usb_suspend_cb(bool s)
 {
-  logPrintf("[  ] usb %s -> qmk suspend hook\n", suspended ? "SUSPEND" : "RESUME");
-  if (suspended)
+  logPrintf("[  ] usb %s\n", s ? "SUSPEND" : "RESUME");
+  usb_suspended = s;   // 실제 반영은 qmkSuspendUpdate() 가 한다 (조건이 둘이라 합쳐야 한다)
+}
+
+/*
+ * RGB/인디케이터 소등의 **단일 결정 지점**.
+ *
+ * 끄는 이유가 둘이다 — 호스트 PC 가 잠(USB SUSPEND), 사용자가 자리를 뜸(activity IDLE).
+ * 각자 suspend_power_down_quantum() 을 부르면 서로를 모른 채 "내 조건이 풀렸다"고 켜버린다
+ * (예: PC 가 깨어났지만 여전히 idle → RGB 가 켜진 채 배터리를 태운다). OR 로 합쳐서
+ * **전이할 때만** 부른다.
+ *
+ * activityGetState() 가 아니라 activityIsIdle() 을 쓴다 — activityUpdate() 는 idle 분기에서만
+ * 불려서, 키가 눌리는 동안 state 는 IDLE 로 낡아 있다. 그걸 보면 RGB 가 영영 안 돌아온다.
+ *
+ * suspend_wakeup_init_quantum() -> led_wakeup() -> led_set(host_keyboard_leds()) 는 활성
+ * host_driver 를 타므로, qmkUpdate() 에선 output_select_task() **뒤에** 불려야 한다.
+ */
+bool qmkIsSuspended(void)
+{
+  return suspended;
+}
+
+void qmkSuspendUpdate(void)
+{
+  bool want = usb_suspended || activityIsIdle();
+
+  if (want == suspended)
   {
-    suspend_power_down_quantum();
+    return;
+  }
+  // [순서 계약] suspend_power_down_quantum() **전에** 세운다. 그 안의
+  // rgb_matrix_set_suspend_state(true) 가 검은 프레임을 flush 하는데, 우리 flush 가
+  // qmkIsSuspended() 로 "레일을 내려도 되나"를 판정하기 때문이다.
+  suspended = want;
+
+  logPrintf("[  ] %s (usb_susp=%d idle=%d)\n", want ? "power down" : "wakeup",
+            usb_suspended, activityIsIdle());
+
+  if (want)
+  {
+    suspend_power_down_quantum();   // RGB + 인디케이터(led_suspend) 둘 다
   }
   else
   {
-    suspend_wakeup_init_quantum();
+    suspend_wakeup_init_quantum();  // led_wakeup() 이 호스트 LED 상태를 복구한다
   }
 }
 
@@ -134,7 +175,7 @@ uint32_t qmkGetIdleWaitMs(void)
    *
    * 전력: RGB 자체가 10mA 단위라 이 웨이크업 비용(≈1mA)은 묻힌다. RGB 를 끄면 원래대로 돌아간다.
    */
-  if (rgb_matrix_is_enabled())
+  if (rgb_matrix_is_enabled() && !suspended)
   {
     if (wait_ms == 0 || wait_ms > QMK_TASK_PERIOD_MS)
     {
@@ -159,6 +200,10 @@ void qmkUpdate(void)
    * 전환을 먼저 하면 같은 회차의 led_task 가 올바른 드라이버를 읽는다.
    */
   output_select_task();
+
+  // 활성 구간에서 idle 이 풀리는(=키 눌림) 순간의 복귀도 여기서 잡는다.
+  // output_select_task() 뒤여야 한다 — led_wakeup() 이 활성 드라이버의 LED 상태를 읽는다.
+  qmkSuspendUpdate();
 
   keyboard_task();
   eeprom_task();
