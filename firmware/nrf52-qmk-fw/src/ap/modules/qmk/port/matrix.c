@@ -12,9 +12,17 @@
  * 키 변화를 input 이벤트로 알려준다. 여기서는 그 이벤트로 raw 매트릭스를 갱신하고,
  * matrix_scan() 은 QMK 디바운스만 적용한다. (드라이버 디바운스는 DTS 에서 0)
  *
- * 인덱스 매핑 주의 (DTS 주석 참고):
- *   Zephyr 의 "col"(구동 출력, INPUT_ABS_X) = wish60 row  → QMK row
- *   Zephyr 의 "row"(입력 라인,  INPUT_ABS_Y) = wish60 col  → QMK col
+ * [인덱스 매핑 — 보드마다 다르다]
+ *
+ * Zephyr 명명은 QMK 와 반대다: col-gpios = **구동 출력**(INPUT_ABS_X), row-gpios = **입력
+ * 라인**(INPUT_ABS_Y). 그런데 그 구동/입력이 QMK 의 row 인지 col 인지는 **다이오드 방향이
+ * 정한다** — 보드마다 다르므로 여기 박아두면 안 된다.
+ *
+ *   row2col 보드(wish60): 구동 = QMK row,  입력 = QMK col   <- 기본
+ *   col2row 보드(wish65): 구동 = QMK col,  입력 = QMK row   <- MATRIX_DRIVE_IS_QMK_COL
+ *
+ * 틀려도 **컴파일은 되고 키맵이 전치되어** 나온다(조용히 틀리는 종류). 새 보드를 넣을 땐
+ * DTS 의 다이오드 방향과 이 매크로가 맞는지 반드시 확인할 것. 배경은 §2.4/§4.1.
  */
 
 /*
@@ -40,17 +48,25 @@ static void kbd_matrix_input_cb(struct input_event *evt, void *user_data)
 {
   ARG_UNUSED(user_data);
 
-  static uint8_t qmk_row;   // INPUT_ABS_X (드라이버 col = wish60/QMK row)
-  static uint8_t qmk_col;   // INPUT_ABS_Y (드라이버 row = wish60/QMK col)
+  static uint8_t qmk_row;
+  static uint8_t qmk_col;
 
   switch (evt->code)
   {
-    case INPUT_ABS_X:
+    case INPUT_ABS_X:   // Zephyr col-gpios = 구동 출력
+#ifdef MATRIX_DRIVE_IS_QMK_COL
+      qmk_col = (uint8_t)evt->value;
+#else
       qmk_row = (uint8_t)evt->value;
+#endif
       break;
 
-    case INPUT_ABS_Y:
+    case INPUT_ABS_Y:   // Zephyr row-gpios = 입력 라인
+#ifdef MATRIX_DRIVE_IS_QMK_COL
+      qmk_row = (uint8_t)evt->value;
+#else
       qmk_col = (uint8_t)evt->value;
+#endif
       break;
 
     case INPUT_BTN_TOUCH:

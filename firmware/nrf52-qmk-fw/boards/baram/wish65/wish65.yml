@@ -1,0 +1,10 @@
+identifier: wish65/nrf52833
+name: wish65
+vendor: baram
+type: mcu
+arch: arm
+ram: 128
+flash: 512
+toolchain:
+  - zephyr
+supported: []
