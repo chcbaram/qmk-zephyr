@@ -62,8 +62,8 @@ EXTRA=""
 echo "board: $BOARD/$SOC   빌드: $([ -n "$DEBUG" ] && echo "개발(콘솔)" || echo "릴리스")   -> ${BUILD#$APP/}"
 
 cd "$APP"
-"$TC/bin/west" build -b "$BOARD/$SOC" -d "$BUILD" -p "$PRISTINE" --no-sysbuild . -- \
-  -DBOARD_ROOT="$APP" $EXTRA
+# BOARD_ROOT / DTS_ROOT 는 CMakeLists.txt 가 스스로 넣는다 — 여기서 안 넘긴다.
+"$TC/bin/west" build -b "$BOARD/$SOC" -d "$BUILD" -p "$PRISTINE" --no-sysbuild . ${EXTRA:+-- $EXTRA}
 
 echo
 echo "산출물: ${BUILD#$APP/}/zephyr/zephyr.uf2"
