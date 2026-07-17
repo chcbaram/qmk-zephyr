@@ -196,10 +196,30 @@ struct usbd_context *usbd_init_device(usbd_msg_cb_t msg_cb)
   return &usbd;
 }
 
+static void (*p_suspend_func)(bool suspended) = NULL;
+
+void usbSetSuspendFunc(void (*func)(bool suspended))
+{
+  p_suspend_func = func;
+}
+
 static void msg_cb(struct usbd_context *const   usbd_ctx,
                    const struct usbd_msg *const msg)
 {
   LOG_INF("USBD message: %s", usbd_msg_type_string(msg->type));
+
+  // 호스트가 자면 SUSPEND, 깨면 RESUME. 등록자(port/qmk.c)가 QMK 서스펜드 훅으로 넘긴다.
+  if (p_suspend_func != NULL)
+  {
+    if (msg->type == USBD_MSG_SUSPEND)
+    {
+      p_suspend_func(true);
+    }
+    else if (msg->type == USBD_MSG_RESUME)
+    {
+      p_suspend_func(false);
+    }
+  }
 
   if (msg->type == USBD_MSG_CONFIGURATION)
   {
