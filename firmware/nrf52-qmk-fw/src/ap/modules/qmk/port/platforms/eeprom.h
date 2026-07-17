@@ -9,6 +9,15 @@
 
 void     eeprom_init(void);
 void     eeprom_update(void);
+
+/*
+ * 아직 플래시에 안 쓴 변경이 남아있나(settle-flush 대기 중).
+ *
+ * 메인 루프가 이걸 보고 **flush 될 때까지는 오래 자지 않는다**(qmkGetIdleWaitMs).
+ * 안 그러면 VIA 저장/키맵 편집 직후 루프가 수십 초 블록해버려, 그 사이 전원이 꺼지면
+ * 유실된다(실제로 겪음: RGB 를 끄고 전원을 껐다 켜면 다시 켜져 있었다).
+ */
+bool     eeprom_is_dirty(void);
 void     eeprom_task(void);
 void     eeprom_req_clean(void);
 uint8_t  eeprom_read_byte(const uint8_t *addr);
