@@ -33,4 +33,6 @@
 //                                                                        offset  size
 #define EECONFIG_USER_POWER   ((void *)((uint32_t)EECONFIG_USER_DATABLOCK +  0))  // 4B  idle/sleep 타임아웃
 #define EECONFIG_USER_BLE     ((void *)((uint32_t)EECONFIG_USER_DATABLOCK +  4))  // 4B  TX power
-// 다음 빈 오프셋: 8   (예정: 런타임 디바운스)
+#define EECONFIG_USER_DEBOUNCE ((void *)((uint32_t)EECONFIG_USER_DATABLOCK + 8))  // 4B  디바운스 시간(ms)
+#define EECONFIG_USER_HOLD_OKP ((void *)((uint32_t)EECONFIG_USER_DATABLOCK + 12)) // 4B  HOLD_ON_OTHER_KEY_PRESS
+// 다음 빈 오프셋: 16

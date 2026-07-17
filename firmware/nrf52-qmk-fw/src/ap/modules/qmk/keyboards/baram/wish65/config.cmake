@@ -9,11 +9,13 @@ set(RGBLIGHT_ENABLE false)
 # 스캔/디바운스는 QMK 가 담당하고 드라이버(gpio-kbd-matrix) 디바운스는 0 으로 둔다.
 set(DEBOUNCE_TYPE sym_defer_pk)
 
-# --- 아래는 baram-8k VENOM 커스텀 런타임 기능 (현재 미지원) ---
-# 대응 port 파일(port/debounce_runtime.c, debounce_cfg.c, hold_okp.c)과
-# VIA 커스텀 채널(port/via_port.c, 각 보드 port/)이 필요하다. 포팅 후 활성화:
-# set(DEBOUNCE_RUNTIME ON)   # 런타임 디바운스 타입/시간 전환 (VIA)
-# set(HOLD_OKP_RUNTIME ON)   # HOLD_ON_OTHER_KEY_PRESS 런타임 on/off (VIA)
+# VIA 로 조절하는 런타임 노브 (port/via/debounce_cfg.c, hold_okp.c).
+#
+# 디바운스는 **시간만** 런타임이다 — 알고리즘 타입(위 DEBOUNCE_TYPE)은 빌드타임 고정이다.
+# baram-8k VENOM 은 타입도 바꾸지만, 그러려면 두 알고리즘을 다 링크하고 QMK 순정 debounce() 를
+# 우회하는 층이 필요하다. 우리는 sym_defer_pk 고정이라 그 비용을 낼 이유가 없다.
+set(DEBOUNCE_RUNTIME ON)
+set(HOLD_OKP_RUNTIME ON)
 
 # 언더글로우(네오픽셀 18개). DTS: led_strip + ext_power.
 #

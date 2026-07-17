@@ -27,6 +27,8 @@
 #define ID_QMK_SYSTEM_CHANNEL   9    // baram-qmk 와 동일 번호 (DFU / EEPROM clean)
 #define ID_QMK_POWER_CHANNEL    15   // 전력 타임아웃 (신규)
 #define ID_QMK_BLE_CHANNEL      16   // BLE 프로파일 (신규)
+#define ID_QMK_DEBOUNCE_CHANNEL 17   // 디바운스 시간 (신규)
+#define ID_QMK_HOLD_OKP_CHANNEL 18   // HOLD_ON_OTHER_KEY_PRESS (신규)
 
 // EEPROM 설정을 읽어 적용. qmkInit() 에서 activityInit() 뒤에 호출.
 void viaPortInit(void);
